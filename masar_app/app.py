@@ -566,6 +566,18 @@ def normalize_service_url(value: str, *, field_name: str) -> str:
     return value
 
 
+def company_key(value: str) -> str:
+    """Collapse descriptive/legal suffixes so the same employer is not approached twice."""
+    value = re.sub(r"\([^)]*\)", " ", value.casefold())
+    value = re.split(r"\s+[—–|]\s+", value, maxsplit=1)[0]
+    value = re.sub(
+        r"\b(incorporated|corporation|company|limited|holdings|llc|ltd|plc|inc|corp|co)\b",
+        " ",
+        value,
+    )
+    return re.sub(r"[^a-z0-9]+", "", value)
+
+
 async def verify_url(url: str) -> bool:
     if not url:
         return False
@@ -704,6 +716,9 @@ contacts, dates, requirements, or URLs. Score CV fit only from the supplied prof
 student/graduate conflicts, and missing requirements in gaps. confidence_score measures source confidence,
 not candidate fit: 90+ requires a direct official source; 75-89 may use a direct reputable job/company page;
 below 75 should normally be excluded.
+
+Do not recommend proactive outreach to an organization shown as the candidate's current employer unless
+there is a clearly separate, advertised student program that fits the candidate.
 
 Candidate profile:
 {json.dumps(profile, ensure_ascii=False)}
@@ -1374,22 +1389,29 @@ async def discover_jobs(payload: DiscoverPayload) -> dict[str, Any]:
         item = prepare_opportunity(raw_item, track, location, country)
         if not item:
             continue
-        key = re.sub(r"\W+", "", f"{item['opportunity_kind']}{item['title']}{item['company']}".lower())
+        key = f"{item['opportunity_kind']}:{item['title'].casefold()}:{company_key(item['company'])}"
         if key in seen:
             continue
         seen.add(key)
         prepared.append(item)
 
     opening_companies = {
-        re.sub(r"\W+", "", item["company"].lower())
+        company_key(item["company"])
         for item in prepared
         if item["opportunity_kind"] == "opening"
     }
+    with db() as connection:
+        opening_companies.update(
+            company_key(row["company"])
+            for row in connection.execute(
+                "SELECT company FROM jobs WHERE opportunity_kind='opening' AND demo=0"
+            ).fetchall()
+        )
     prepared = [
         item
         for item in prepared
         if item["opportunity_kind"] == "opening"
-        or re.sub(r"\W+", "", item["company"].lower()) not in opening_companies
+        or company_key(item["company"]) not in opening_companies
     ]
     prepared.sort(
         key=lambda item: (item["confidence_score"], item["match_score"], item["opportunity_kind"] == "opening"),
@@ -1416,14 +1438,18 @@ async def discover_jobs(payload: DiscoverPayload) -> dict[str, Any]:
             item["confidence_score"] = min(item["confidence_score"], 82)
         verified_items.append(item)
     prepared = verified_items
+    sources_scanned = max(sources_scanned, len(checks))
 
     with db() as connection:
         for item in prepared:
-            duplicate = connection.execute(
-                """SELECT id FROM jobs WHERE lower(title)=lower(?) AND lower(company)=lower(?)
-                   AND opportunity_kind=? AND demo=0""",
-                (item["title"], item["company"], item["opportunity_kind"]),
-            ).fetchone()
+            candidates = connection.execute(
+                "SELECT id, company FROM jobs WHERE opportunity_kind=? AND demo=0",
+                (item["opportunity_kind"],),
+            ).fetchall()
+            duplicate = next(
+                (row for row in candidates if company_key(row["company"]) == company_key(item["company"])),
+                None,
+            )
             values = (
                 item["location"], item["workplace"], item["employment_type"], item["summary"],
                 json.dumps(item["requirements"]), item["url"], item["source"], item["contact_email"],

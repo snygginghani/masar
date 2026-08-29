@@ -244,6 +244,11 @@ def test_location_quality_rule_uses_runtime_search_target() -> None:
     assert app_module.prepare_opportunity(item, "open_roles", "Berlin", "Germany") is None
 
 
+def test_company_key_collapses_descriptive_and_legal_suffixes() -> None:
+    assert app_module.company_key("Zain Jordan (Zain Careers)") == app_module.company_key("Zain Jordan")
+    assert app_module.company_key("Example Labs, LLC") == app_module.company_key("Example Labs")
+
+
 def test_ai_dispatch_uses_selected_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
 
