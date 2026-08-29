@@ -270,3 +270,57 @@ def test_system_capabilities_has_actionable_recommendation(client: TestClient) -
     assert data["memory_gb"] >= 0
     assert data["recommendation"]["model"].startswith("qwen3:")
     assert data["recommendation"]["download_size"]
+
+
+def test_public_contact_enrichment_keeps_only_verified_professional_contacts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    jobs = [{
+        "company": "Example Labs",
+        "url": "https://example.com/careers",
+        "official_domain": "example.com",
+        "contact_email": "",
+        "contact_name": "",
+        "contact_role": "",
+        "public_contacts": [],
+    }]
+
+    async def fake_research(*args, **kwargs):
+        return ([
+            {
+                "company": "Example Labs, LLC",
+                "name": "Dana Recruiter",
+                "role": "Talent Acquisition Partner",
+                "email": "dana@example.com",
+                "url": "https://example.com/team/dana",
+                "source": "Example team page",
+            },
+            {
+                "company": "Example Labs",
+                "name": "Pat Engineer",
+                "role": "Software Engineer",
+                "email": "pat@gmail.com",
+                "url": "https://example.com/team/pat",
+                "source": "Example team page",
+            },
+        ], 2)
+
+    async def fake_inspect(url: str, email: str = "", name: str = "", company: str = ""):
+        return {
+            "reachable": True,
+            "email_present": email == "dana@example.com",
+            "name_present": name == "Dana Recruiter",
+            "hr_signal": True,
+            "company_present": company == "Example Labs",
+        }
+
+    monkeypatch.setattr(app_module, "research_public_contacts", fake_research)
+    monkeypatch.setattr(app_module, "inspect_source", fake_inspect)
+    count, sources = asyncio.run(
+        app_module.enrich_public_contacts(jobs, field="Biology", location="Paris", country="France")
+    )
+    assert count == 1
+    assert sources == 2
+    assert jobs[0]["public_contacts"][0]["email"] == "dana@example.com"
+    assert jobs[0]["contact_name"] == "Dana Recruiter"
+    assert all(contact["email"] != "pat@gmail.com" for contact in jobs[0]["public_contacts"])

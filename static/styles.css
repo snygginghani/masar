@@ -211,7 +211,7 @@ h1 em { font-family: var(--font-serif); font-weight: 500; color: var(--coral); l
 .button-dark:hover { background: #303b36; box-shadow: 0 6px 18px rgba(23,32,29,.18); }
 .search-panel .button-dark { min-width: 168px; background: var(--coral); }
 .search-panel .button-dark:hover { background: #f0785d; }
-.search-options { padding: 9px 10px 3px; border-top: 1px solid rgba(255,255,255,.11); }
+.search-options { display: flex; flex-wrap: wrap; gap: 8px 30px; padding: 9px 10px 3px; border-top: 1px solid rgba(255,255,255,.11); }
 .outreach-option { min-height: 48px; display: flex; align-items: center; gap: 11px; width: fit-content; color: var(--white); cursor: pointer; }
 .outreach-option input { position: absolute; opacity: 0; pointer-events: none; }
 .option-control { position: relative; width: 38px; height: 22px; flex: 0 0 auto; background: #4a534f; border-radius: 99px; transition: background .18s ease; }
@@ -472,6 +472,14 @@ h1 em { font-family: var(--font-serif); font-weight: 500; color: var(--coral); l
 .dialog-section p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
 .contact-proof { padding: 15px 17px; background: var(--sand); border: 0; border-radius: 8px; }
 .contact-proof p strong { color: var(--ink); }
+.contact-list { display: grid; gap: 8px; }
+.contact-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; padding: 13px 14px; background: var(--white); border: 1px solid var(--line); border-radius: 7px; }
+.contact-card strong, .contact-card span { display: block; }
+.contact-card strong { color: var(--ink); font-size: 12px; }
+.contact-card span { margin-top: 2px; color: var(--muted); font-size: 10px; }
+.contact-card .contact-email { grid-column: 1; color: var(--olive); font-size: 11px; overflow-wrap: anywhere; }
+.contact-card .source-link { align-self: center; text-align: right; }
+.contact-empty { color: var(--muted); font-size: 11px; }
 .bullet-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
 .bullet-list li { position: relative; padding-left: 17px; color: var(--muted); font-size: 12px; }
 .bullet-list li::before { content: ""; position: absolute; left: 0; top: .62em; width: 6px; height: 6px; background: var(--sage); border-radius: 50%; }
@@ -619,6 +627,8 @@ h1 em { font-family: var(--font-serif); font-weight: 500; color: var(--coral); l
   .integration-head { grid-template-columns: 40px 1fr; }
   .integration-head .status-badge { grid-column: 2; }
   .confirm-actions { grid-template-columns: 1fr; }
+  .contact-card { grid-template-columns: 1fr; }
+  .contact-card .source-link { text-align: left; }
   .onboarding-form-wrap { justify-content: start; }
   .onboarding-step h1 { font-size: 42px; }
 }

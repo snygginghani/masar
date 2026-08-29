@@ -35,6 +35,16 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 DB_PATH = DATA_DIR / "masar.db"
 MAX_CV_BYTES = 10 * 1024 * 1024
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+HR_ROLE_RE = re.compile(
+    r"\b(human resources?|hr|recruit(?:er|ing|ment)?|talent acquisition|people operations?|"
+    r"people partner|people (?:and|&) culture|chief people officer|talent partner|talent management|"
+    r"employer branding|campus hiring|university relations?|early careers?|careers?|internship coordinator)\b",
+    re.I,
+)
+FREE_EMAIL_DOMAINS = {
+    "gmail.com", "googlemail.com", "yahoo.com", "hotmail.com", "outlook.com", "live.com",
+    "icloud.com", "proton.me", "protonmail.com", "aol.com",
+}
 
 DATA_DIR.mkdir(exist_ok=True)
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -110,6 +120,7 @@ def init_db() -> None:
                 evidence_urls TEXT NOT NULL DEFAULT '[]',
                 contact_name TEXT NOT NULL DEFAULT '',
                 contact_role TEXT NOT NULL DEFAULT '',
+                public_contacts TEXT NOT NULL DEFAULT '[]',
                 official_domain TEXT NOT NULL DEFAULT '',
                 search_track TEXT NOT NULL DEFAULT 'open_roles',
                 last_verified TEXT,
@@ -140,6 +151,7 @@ def init_db() -> None:
             "evidence_urls": "TEXT NOT NULL DEFAULT '[]'",
             "contact_name": "TEXT NOT NULL DEFAULT ''",
             "contact_role": "TEXT NOT NULL DEFAULT ''",
+            "public_contacts": "TEXT NOT NULL DEFAULT '[]'",
             "official_domain": "TEXT NOT NULL DEFAULT ''",
             "search_track": "TEXT NOT NULL DEFAULT 'open_roles'",
             "last_verified": "TEXT",
@@ -217,6 +229,12 @@ class DiscoverPayload(BaseModel):
     country: str = ""
     max_results: int = Field(default=20, ge=4, le=30)
     include_outreach: bool = True
+    include_contacts: bool = True
+
+
+class ContactDiscoverPayload(BaseModel):
+    job_ids: list[str] = Field(default_factory=list)
+    max_companies: int = Field(default=12, ge=1, le=20)
 
 
 class SelectionPayload(BaseModel):
@@ -241,7 +259,7 @@ class SendPayload(BaseModel):
 
 def row_dict(row: sqlite3.Row) -> dict[str, Any]:
     item = dict(row)
-    for key in ("requirements", "match_reasons", "gaps", "evidence_urls"):
+    for key in ("requirements", "match_reasons", "gaps", "evidence_urls", "public_contacts"):
         if key in item:
             try:
                 item[key] = json.loads(item[key] or "[]")
@@ -250,6 +268,19 @@ def row_dict(row: sqlite3.Row) -> dict[str, Any]:
     for key in ("selected", "demo", "verified", "approved"):
         if key in item:
             item[key] = bool(item[key])
+    if "public_contacts" in item and not item["public_contacts"] and (
+        item.get("contact_email") or item.get("contact_name")
+    ):
+        item["public_contacts"] = [
+            {
+                "name": item.get("contact_name") or "",
+                "role": item.get("contact_role") or "Recruiting contact",
+                "email": item.get("contact_email") or "",
+                "url": item.get("url") or "",
+                "source": item.get("source") or "Published opportunity source",
+                "verified": bool(item.get("verified")),
+            }
+        ]
     return item
 
 
@@ -303,7 +334,7 @@ def extract_json_array(content: Any) -> list[dict[str, Any]]:
             if isinstance(data, list):
                 return [item for item in data if isinstance(item, dict)]
             if isinstance(data, dict):
-                for key in ("jobs", "opportunities", "results", "companies"):
+                for key in ("jobs", "opportunities", "results", "companies", "contacts"):
                     if isinstance(data.get(key), list):
                         return [item for item in data[key] if isinstance(item, dict)]
         except json.JSONDecodeError:
@@ -605,13 +636,15 @@ def public_hostname(url: str) -> str:
     return hostname if hostname else ""
 
 
-async def inspect_source(url: str, contact_email: str = "") -> dict[str, Any]:
-    """Reach a public source and verify a claimed email against its rendered HTML."""
+async def inspect_source(
+    url: str, contact_email: str = "", contact_name: str = "", company_name: str = ""
+) -> dict[str, Any]:
+    """Reach a public source and verify contact claims against its HTML."""
     if not url:
-        return {"reachable": False, "email_present": False}
+        return {"reachable": False, "email_present": False, "name_present": False, "hr_signal": False, "company_present": False}
     hostname = urlparse(url).hostname
     if not hostname or hostname.lower() == "localhost":
-        return {"reachable": False, "email_present": False}
+        return {"reachable": False, "email_present": False, "name_present": False, "hr_signal": False, "company_present": False}
     try:
         addresses = await asyncio.to_thread(socket.getaddrinfo, hostname, None)
         resolved = {item[4][0] for item in addresses}
@@ -625,12 +658,40 @@ async def inspect_source(url: str, contact_email: str = "") -> dict[str, Any]:
             response = await client.get(url)
             reachable = response.status_code < 400
             page_text = response.text[:750000].lower() if reachable else ""
+            generic_company_words = {
+                "company", "group", "holding", "holdings", "software", "technology", "technologies",
+                "solutions", "services", "global", "international", "jordan", "careers", "co", "ai",
+            }
+            base_company = re.sub(r"\([^)]*\)", " ", company_name.casefold())
+            base_company = re.split(r"\s+[—–|]\s+", base_company, maxsplit=1)[0]
+            company_terms = [
+                term for term in re.findall(r"[a-z0-9]+", base_company)
+                if len(term) >= 2 and term not in generic_company_words
+            ]
             return {
                 "reachable": reachable,
                 "email_present": bool(contact_email and contact_email.lower() in page_text),
+                "name_present": bool(contact_name and contact_name.lower() in page_text),
+                "hr_signal": bool(HR_ROLE_RE.search(page_text)),
+                "company_present": bool(
+                    company_name
+                    and any(re.search(rf"\b{re.escape(term)}\b", page_text) for term in company_terms)
+                ),
             }
     except (httpx.HTTPError, OSError, ValueError):
-        return {"reachable": False, "email_present": False}
+        return {"reachable": False, "email_present": False, "name_present": False, "hr_signal": False, "company_present": False}
+
+
+def business_email(value: Any) -> str:
+    email = str(value or "").strip().lower()
+    if not EMAIL_RE.match(email):
+        return ""
+    return "" if email.rsplit("@", 1)[1] in FREE_EMAIL_DOMAINS else email
+
+
+def companies_match(first: str, second: str) -> bool:
+    a, b = company_key(first), company_key(second)
+    return bool(a and b and (a == b or (min(len(a), len(b)) >= 6 and (a in b or b in a))))
 
 
 def citations_from_message(message: dict[str, Any]) -> list[dict[str, str]]:
@@ -767,6 +828,182 @@ Citations: {json.dumps(citations, ensure_ascii=False)[:18000]}
             json_mode=True,
         )
         return extract_json_array(repaired.get("content")), len(citations)
+
+
+async def research_public_contacts(
+    jobs: list[dict[str, Any]], *, field: str, location: str, country: str
+) -> tuple[list[dict[str, Any]], int]:
+    companies = [
+        {
+            "company": job["company"],
+            "official_domain": job.get("official_domain") or public_hostname(job.get("url") or ""),
+            "opportunity_url": job.get("url") or "",
+        }
+        for job in jobs[:20]
+    ]
+    if not companies:
+        return [], 0
+    company_names = " OR ".join(f'"{item["company"]}"' for item in companies[:8])
+    target_area = ", ".join(part for part in (location, country) if part)
+    queries = [
+        f"({company_names}) recruiter OR hiring OR talent acquisition {target_area}",
+        f"site:linkedin.com/in ({company_names}) recruiter OR HR OR people {target_area}",
+        f"({company_names}) careers contact recruitment email {target_area}",
+    ]
+    prompt = f"""
+<search_queries>{json.dumps(queries, ensure_ascii=False)}</search_queries>
+
+Find up to three CURRENT, publicly listed professional recruiting contacts for each supplied organization.
+Relevant roles include recruiter, talent acquisition, HR, people operations, university relations, campus
+hiring, early-careers recruiting, or internship coordination. Prefer official team/staff pages, official
+career pages, and public professional profiles that clearly show the person's current employer and role.
+
+The organizations are relevant to the candidate's field ({field}) in {target_area}:
+{json.dumps(companies, ensure_ascii=False)}
+
+Strict rules:
+- Return only a person or recruiting inbox explicitly published on the cited contact URL.
+- The page must connect the person to the named organization and a recruiting/HR role.
+- Never infer an email pattern, generate an address, use enrichment databases, or include private data.
+- Exclude personal/free-provider email addresses, former employees, and people whose current affiliation is unclear.
+- A name without an email is useful when its public professional source is available.
+- It is correct to return no contact for a company when evidence is weak.
+
+Return JSON with one key, "contacts", containing objects with exactly these keys:
+company, name, role, email, url, source. Accuracy is more important than count.
+"""
+    message = await ai_chat(
+        [
+            {
+                "role": "system",
+                "content": "You verify public professional recruiting contacts. Never guess or enrich private data.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        web_search=True,
+        json_mode=True,
+    )
+    citations = citations_from_message(message)
+    try:
+        return extract_json_array(message.get("content")), len(citations)
+    except ValueError:
+        repaired = await ai_chat(
+            [
+                {
+                    "role": "system",
+                    "content": "Extract only evidenced public recruiting contacts and output JSON only.",
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Return one JSON object with key contacts. Do not add or infer facts. Required keys: "
+                        "company, name, role, email, url, source.\nResponse: "
+                        + message_text(message.get("content"))[:22000]
+                        + "\nCitations: "
+                        + json.dumps(citations, ensure_ascii=False)[:16000]
+                    ),
+                },
+            ],
+            json_mode=True,
+        )
+        return extract_json_array(repaired.get("content")), len(citations)
+
+
+def normalize_public_contact(
+    raw: dict[str, Any], jobs: list[dict[str, Any]]
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    claimed_company = str(raw.get("company") or "").strip()
+    job = next((item for item in jobs if companies_match(claimed_company, item["company"])), None)
+    if not job:
+        return None
+    name = str(raw.get("name") or "").strip()[:120]
+    role = str(raw.get("role") or "").strip()[:160]
+    email = business_email(raw.get("email"))
+    url = normalize_url(raw.get("url"))
+    if not url or not role or not HR_ROLE_RE.search(role) or (not name and not email):
+        return None
+    return job, {
+        "name": name,
+        "role": role,
+        "email": email,
+        "url": url,
+        "source": str(raw.get("source") or public_hostname(url)).strip()[:200],
+        "verified": False,
+    }
+
+
+async def enrich_public_contacts(
+    jobs: list[dict[str, Any]], *, field: str, location: str, country: str
+) -> tuple[int, int]:
+    if not jobs:
+        return 0, 0
+    raw_contacts, citation_count = await research_public_contacts(
+        jobs, field=field, location=location, country=country
+    )
+    candidates: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for raw in raw_contacts:
+        normalized = normalize_public_contact(raw, jobs)
+        if normalized:
+            candidates.append(normalized)
+    for job in jobs:
+        if job.get("contact_email") or job.get("contact_name"):
+            baseline = normalize_public_contact(
+                {
+                    "company": job["company"],
+                    "name": job.get("contact_name") or "",
+                    "role": job.get("contact_role") or "Recruiting contact",
+                    "email": job.get("contact_email") or "",
+                    "url": job.get("url") or "",
+                    "source": job.get("source") or "Opportunity source",
+                },
+                jobs,
+            )
+            if baseline:
+                candidates.append(baseline)
+
+    unique: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    seen: set[str] = set()
+    for job, contact in candidates:
+        key = f"{company_key(job['company'])}:{contact['email'] or (contact['name'].casefold() + contact['role'].casefold())}"
+        if key not in seen:
+            seen.add(key)
+            unique.append((job, contact))
+    checks = await asyncio.gather(
+        *(
+            inspect_source(contact["url"], contact["email"], contact["name"], job["company"])
+            for job, contact in unique
+        )
+    )
+    for (job, contact), check in zip(unique, checks, strict=True):
+        if not check["reachable"] or not check["hr_signal"] or not check["company_present"]:
+            continue
+        if contact["email"] and not check["email_present"]:
+            contact["email"] = ""
+        if contact["name"] and not check["name_present"]:
+            contact["name"] = ""
+        if not contact["email"] and not contact["name"]:
+            continue
+        contact["verified"] = True
+        existing = job.setdefault("public_contacts", [])
+        existing_keys = {
+            str(item.get("email") or item.get("url") or item.get("name") or "").casefold()
+            for item in existing
+        }
+        contact_key = str(contact.get("email") or contact.get("url") or contact.get("name") or "").casefold()
+        if contact_key not in existing_keys and len(existing) < 3:
+            existing.append(contact)
+
+    contact_count = 0
+    for job in jobs:
+        contacts = job.get("public_contacts") or []
+        contacts.sort(key=lambda item: (bool(item.get("email")), bool(item.get("name"))), reverse=True)
+        contact_count += len(contacts)
+        if contacts:
+            primary = contacts[0]
+            job["contact_email"] = primary.get("email") or ""
+            job["contact_name"] = primary.get("name") or ""
+            job["contact_role"] = primary.get("role") or ""
+    return contact_count, max(citation_count, len(checks))
 
 
 def profile_context() -> tuple[dict[str, Any], str]:
@@ -1279,9 +1516,7 @@ def prepare_opportunity(
         normalized = normalize_url(evidence_url)
         if normalized and normalized not in evidence_urls:
             evidence_urls.append(normalized)
-    email = str(item.get("contact_email") or "").strip().lower()
-    if email and not EMAIL_RE.match(email):
-        email = ""
+    email = business_email(item.get("contact_email"))
     try:
         match_score = int(item.get("match_score") or 50)
     except (TypeError, ValueError):
@@ -1316,6 +1551,7 @@ def prepare_opportunity(
         "contact_email": email,
         "contact_name": str(item.get("contact_name") or "")[:120],
         "contact_role": str(item.get("contact_role") or "")[:120],
+        "public_contacts": [],
         "posted_date": str(
             item.get("posted_date") or ("No posted role — proactive outreach" if kind == "outreach" else "Not stated")
         )[:80],
@@ -1380,6 +1616,7 @@ async def discover_jobs(payload: DiscoverPayload) -> dict[str, Any]:
         records, citations_count = result
         sources_scanned += citations_count
         raw_items.extend((record, track) for record in records)
+    tracks_completed = len(tracks) - len(failures)
     if not raw_items and failures:
         raise HTTPException(502, "Opportunity research failed: " + " · ".join(failures))
 
@@ -1439,24 +1676,52 @@ async def discover_jobs(payload: DiscoverPayload) -> dict[str, Any]:
         verified_items.append(item)
     prepared = verified_items
     sources_scanned = max(sources_scanned, len(checks))
+    public_contacts_found = 0
+    if payload.include_contacts and prepared:
+        try:
+            public_contacts_found, contact_sources = await enrich_public_contacts(
+                prepared, field=discipline or keywords, location=location, country=country
+            )
+            sources_scanned += contact_sources
+        except Exception as exc:
+            failures.append(f"public_contacts: {str(exc)[:180]}")
 
     with db() as connection:
         for item in prepared:
             candidates = connection.execute(
-                "SELECT id, company FROM jobs WHERE opportunity_kind=? AND demo=0",
+                """SELECT id, company, public_contacts, contact_email, contact_name, contact_role
+                   FROM jobs WHERE opportunity_kind=? AND demo=0""",
                 (item["opportunity_kind"],),
             ).fetchall()
             duplicate = next(
                 (row for row in candidates if company_key(row["company"]) == company_key(item["company"])),
                 None,
             )
+            if duplicate:
+                try:
+                    existing_contacts = json.loads(duplicate["public_contacts"] or "[]")
+                except json.JSONDecodeError:
+                    existing_contacts = []
+                merged_contacts: list[dict[str, Any]] = []
+                contact_keys: set[str] = set()
+                for contact in (item.get("public_contacts") or []) + existing_contacts:
+                    key = str(contact.get("email") or contact.get("url") or contact.get("name") or "").casefold()
+                    if key and key not in contact_keys and len(merged_contacts) < 3:
+                        contact_keys.add(key)
+                        merged_contacts.append(contact)
+                item["public_contacts"] = merged_contacts
+                if not item.get("contact_email") and duplicate["contact_email"]:
+                    item["contact_email"] = duplicate["contact_email"]
+                    item["contact_name"] = duplicate["contact_name"] or ""
+                    item["contact_role"] = duplicate["contact_role"] or ""
             values = (
                 item["location"], item["workplace"], item["employment_type"], item["summary"],
                 json.dumps(item["requirements"]), item["url"], item["source"], item["contact_email"],
                 item["posted_date"], item["closing_date"], item["match_score"],
                 json.dumps(item["match_reasons"]), json.dumps(item["gaps"]), int(item["verified"]),
                 item["opportunity_kind"], item["confidence_score"], json.dumps(item["evidence_urls"]),
-                item["contact_name"], item["contact_role"], item["official_domain"], item["search_track"],
+                item["contact_name"], item["contact_role"], json.dumps(item["public_contacts"]),
+                item["official_domain"], item["search_track"],
                 item["last_verified"], now_iso(),
             )
             if duplicate:
@@ -1464,7 +1729,7 @@ async def discover_jobs(payload: DiscoverPayload) -> dict[str, Any]:
                     """UPDATE jobs SET location=?, workplace=?, employment_type=?, summary=?, requirements=?,
                        url=?, source=?, contact_email=?, posted_date=?, closing_date=?, match_score=?,
                        match_reasons=?, gaps=?, verified=?, opportunity_kind=?, confidence_score=?,
-                       evidence_urls=?, contact_name=?, contact_role=?, official_domain=?, search_track=?,
+                       evidence_urls=?, contact_name=?, contact_role=?, public_contacts=?, official_domain=?, search_track=?,
                        last_verified=?, discovered_at=? WHERE id=?""",
                     values + (duplicate["id"],),
                 )
@@ -1473,9 +1738,9 @@ async def discover_jobs(payload: DiscoverPayload) -> dict[str, Any]:
                     """INSERT INTO jobs
                     (id,title,company,location,workplace,employment_type,summary,requirements,url,source,
                      contact_email,posted_date,closing_date,match_score,match_reasons,gaps,demo,verified,
-                     opportunity_kind,confidence_score,evidence_urls,contact_name,contact_role,official_domain,
-                     search_track,last_verified,discovered_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?)""",
+                     opportunity_kind,confidence_score,evidence_urls,contact_name,contact_role,public_contacts,
+                     official_domain,search_track,last_verified,discovered_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?,?)""",
                     (item["id"], item["title"], item["company"]) + values,
                 )
 
@@ -1488,10 +1753,62 @@ async def discover_jobs(payload: DiscoverPayload) -> dict[str, Any]:
         "outreach": outreach,
         "verified": len(prepared),
         "email_ready": sum(bool(item["contact_email"]) for item in prepared),
+        "public_contacts_found": public_contacts_found,
         "sources_scanned": sources_scanned,
-        "tracks_completed": len(tracks) - len(failures),
+        "tracks_completed": tracks_completed,
         "track_warnings": failures,
-        "note": "Only reachable source pages were saved. Public contacts are kept only when present on the saved page.",
+        "note": "Only reachable source pages were saved. Public HR contacts are kept only when their role and identity or work email are present on the cited page.",
+    }
+
+
+@app.post("/api/jobs/contacts/discover")
+async def discover_contacts(payload: ContactDiscoverPayload) -> dict[str, Any]:
+    profile, _ = profile_context()
+    with db() as connection:
+        if payload.job_ids:
+            job_ids = list(dict.fromkeys(payload.job_ids))[: payload.max_companies]
+            placeholders = ",".join("?" for _ in job_ids)
+            rows = connection.execute(
+                f"SELECT * FROM jobs WHERE id IN ({placeholders}) AND demo=0 AND verified=1",
+                job_ids,
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                """SELECT * FROM jobs WHERE demo=0 AND verified=1
+                   ORDER BY opportunity_kind='outreach' DESC, discovered_at DESC LIMIT ?""",
+                (payload.max_companies,),
+            ).fetchall()
+    jobs = [row_dict(row) for row in rows]
+    if not jobs:
+        raise HTTPException(404, "No verified opportunities are available for contact research.")
+    locations = normalize_list(profile.get("search_locations"), 8)
+    location = (locations[0] if locations else str(profile.get("city") or "")).strip()
+    country = str(profile.get("country") or "").strip()
+    field = ", ".join(normalize_list(profile.get("disciplines"), 5)) or str(
+        profile.get("degree") or "the candidate's field"
+    )
+    contact_count, sources_scanned = await enrich_public_contacts(
+        jobs, field=field, location=location, country=country
+    )
+    with db() as connection:
+        for job in jobs:
+            connection.execute(
+                """UPDATE jobs SET public_contacts=?, contact_email=?, contact_name=?, contact_role=?
+                   WHERE id=?""",
+                (
+                    json.dumps(job.get("public_contacts") or []),
+                    job.get("contact_email") or "",
+                    job.get("contact_name") or "",
+                    job.get("contact_role") or "",
+                    job["id"],
+                ),
+            )
+    return {
+        "ok": True,
+        "companies_checked": len(jobs),
+        "public_contacts_found": contact_count,
+        "sources_scanned": sources_scanned,
+        "note": "Only publicly evidenced professional recruiting contacts were saved.",
     }
 
 

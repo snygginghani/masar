@@ -144,7 +144,7 @@ function filteredJobs() {
   if (activeFilter === "openings") return appState.jobs.filter((job) => (job.opportunity_kind || "opening") === "opening");
   if (activeFilter === "outreach") return appState.jobs.filter((job) => job.opportunity_kind === "outreach");
   if (activeFilter === "strong") return appState.jobs.filter((job) => job.match_score >= 80);
-  if (activeFilter === "email") return appState.jobs.filter((job) => job.contact_email && !job.demo);
+  if (activeFilter === "email") return appState.jobs.filter((job) => (job.public_contacts || []).length && !job.demo);
   if (activeFilter === "selected") return appState.jobs.filter((job) => job.selected);
   return appState.jobs;
 }
@@ -153,6 +153,7 @@ function jobCard(job) {
   const sourceClass = job.demo ? "demo" : job.verified ? "verified" : "unverified";
   const sourceText = job.demo ? "Demo only" : job.verified ? "Page reached" : "Open to verify";
   const isOutreach = job.opportunity_kind === "outreach";
+  const publicContactCount = (job.public_contacts || []).length;
   const kindLabel = isOutreach ? "Company outreach" : "Posted role";
   return `
     <article class="job-card ${isOutreach ? "is-outreach" : "is-opening"} ${job.selected ? "is-selected" : ""}" data-job-id="${escapeHTML(job.id)}">
@@ -170,7 +171,7 @@ function jobCard(job) {
       <div class="job-detail-col">
         <strong>${escapeHTML(isOutreach ? "Proactive inquiry" : (job.employment_type || "Internship"))}</strong>
         <span>${escapeHTML(isOutreach ? "No advertised role" : (job.posted_date || "Date not stated"))}</span>
-        <span>${job.contact_email ? "Published email verified" : (isOutreach ? "Official contact page" : "Application page")}</span>
+        <span>${publicContactCount ? `${publicContactCount} verified HR contact${publicContactCount === 1 ? "" : "s"}` : (isOutreach ? "Official contact page" : "Application page")}</span>
       </div>
       <div class="match" aria-label="${job.match_score} percent profile fit">
         <strong>${job.match_score}%</strong><small>profile fit</small>
@@ -194,7 +195,7 @@ function renderJobs() {
         <h3>Your shortlist is still quiet</h3>
         <p>Connect an AI provider to research posted roles and relevant organizations in your field—or load sample data to see the review flow.</p>
         <div class="empty-actions">
-          <button class="button button-dark" type="button" data-empty-action="settings">Connect OpenRouter</button>
+          <button class="button button-dark" type="button" data-empty-action="settings">Connect AI provider</button>
           <button class="button button-light" type="button" data-empty-action="demo">Load safe demo</button>
         </div>
       </div></div>`;
@@ -216,6 +217,11 @@ function openJobDialog(id) {
   const requirements = (job.requirements || []).map((item) => `<li>${escapeHTML(item)}</li>`).join("");
   const reasons = (job.match_reasons || []).map((item) => `<li>${escapeHTML(item)}</li>`).join("");
   const gaps = (job.gaps || []).map((item) => `<li>${escapeHTML(item)}</li>`).join("");
+  const contacts = (job.public_contacts || []).filter((item) => item.verified);
+  const contactsHTML = contacts.map((contact) => {
+    const label = contact.name || "Recruiting inbox";
+    return `<article class="contact-card"><div><strong>${escapeHTML(label)}</strong><span>${escapeHTML(contact.role || "Recruiting contact")}</span></div>${contact.url ? `<a class="source-link" href="${escapeHTML(contact.url)}" target="_blank" rel="noreferrer" aria-label="Verify public source for ${escapeHTML(label)} at ${escapeHTML(job.company)}">Verify source ↗</a>` : ""}${contact.email ? `<span class="contact-email">${escapeHTML(contact.email)}</span>` : `<span class="contact-email">No public work email · use the cited professional source</span>`}</article>`;
+  }).join("");
   $("#job-dialog-content").innerHTML = `
     <div class="dialog-title-row">
       <div class="company-mark" aria-hidden="true">${escapeHTML(companyInitials(job.company))}</div>
@@ -232,7 +238,7 @@ function openJobDialog(id) {
     </div>
     <section class="dialog-section"><h3>${isOutreach ? "Why this company is on the radar" : "The role"}</h3><p>${escapeHTML(job.summary || "No summary was provided by the source.")}</p></section>
     ${requirements ? `<section class="dialog-section"><h3>${isOutreach ? "Relevant team signals" : "What they mention"}</h3><ul class="bullet-list">${requirements}</ul></section>` : ""}
-    ${(job.contact_email || job.contact_name || job.contact_role) ? `<section class="dialog-section contact-proof"><h3>Published contact</h3><p>${job.contact_name ? `<strong>${escapeHTML(job.contact_name)}</strong>${job.contact_role ? ` · ${escapeHTML(job.contact_role)}` : ""}<br>` : ""}${job.contact_email ? escapeHTML(job.contact_email) : "Use the official source page"}</p></section>` : ""}
+    ${contactsHTML ? `<section class="dialog-section contact-proof"><h3>Verified public HR & recruiting contacts</h3><div class="contact-list">${contactsHTML}</div></section>` : (isOutreach ? `<section class="dialog-section contact-proof"><h3>Public recruiting contact</h3><span class="contact-empty">No evidenced HR contact was found. Use the official careers/contact page; Masar will not guess an address.</span></section>` : "")}
     ${reasons ? `<section class="dialog-section"><h3>Why it may fit you</h3><ul class="bullet-list">${reasons}</ul></section>` : ""}
     ${gaps ? `<section class="dialog-section"><h3>Check before applying</h3><ul class="bullet-list gaps">${gaps}</ul></section>` : ""}
     <div class="dialog-actions">
@@ -570,10 +576,11 @@ async function discoverLiveJobs() {
         country: $("#job-country").value,
         max_results: 20,
         include_outreach: $("#include-outreach").checked,
+        include_contacts: $("#include-contacts").checked,
       }),
     });
     await refreshState();
-    const coverage = `${result.openings} posted · ${result.outreach} proactive · ${result.sources_scanned} research sources`;
+    const coverage = `${result.openings} posted · ${result.outreach} proactive · ${result.public_contacts_found || 0} public HR contacts · ${result.sources_scanned} research sources`;
     toast("Opportunity scan complete", `${result.count} verified lead${result.count === 1 ? "" : "s"} · ${coverage}.`);
     if (result.track_warnings?.length) toast("One research lane needs attention", result.track_warnings.join(" · "), "error");
   } catch (error) {

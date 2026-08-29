@@ -11,7 +11,8 @@ Nothing is sent automatically.
 - Three research lanes: posted roles, specialist organizations, and established employers with relevant teams
 - Direct-source preference, URL reachability checks, evidence links, source confidence, CV-fit reasons, and honest gaps
 - Proactive internship inquiries that never pretend an advertised vacancy exists
-- Published-contact verification; guessed and unconfirmed email addresses are discarded
+- Dedicated research for public recruiters, talent-acquisition, people-operations, campus-hiring, and early-careers contacts
+- Every saved contact needs a reachable professional source; guessed, personal, and unconfirmed email addresses are discarded
 - Toggle-based shortlist, editable drafts, per-message approval, and a final send confirmation
 - Gmail, Microsoft 365, and custom SMTP support with CV attachment
 - OpenRouter, OpenAI, or local Ollama model support
@@ -82,7 +83,8 @@ Masar favors precision over result count:
 3. It rejects senior roles, generic search-result pages, low-confidence records, and location mismatches.
 4. It fetches each saved source. Unreachable records are discarded.
 5. A contact email survives only when it appears on the saved public page.
-6. Proactive targets are deduplicated when the same employer already has a posted role.
+6. A dedicated enrichment pass searches for up to three current recruiting contacts per organization and verifies the recruiting role plus the person's name or work email on the cited page.
+7. Proactive targets are deduplicated when the same employer already has a posted role.
 
 Search engines and public pages can still be wrong or stale. Always open the evidence and verify the closing date, eligibility, recipient, and message before approval.
 
@@ -92,6 +94,7 @@ Search engines and public pages can still be wrong or stale. Always open the evi
 - `data/`, secrets, editor settings, and temporary files are excluded from Git.
 - Restarting Masar clears all API and SMTP credentials.
 - External application forms are never submitted silently.
+- Contact research excludes free/personal email providers, inferred address patterns, enrichment databases, former employees, and profiles with unclear current affiliation.
 - Email sending requires a real opportunity, explicit selection, a prepared draft, draft approval, a valid recipient, configured SMTP, and a final confirmation.
 - Use the app only for truthful, relevant applications and respect employer terms, local laws, and reasonable outreach rates.
 
