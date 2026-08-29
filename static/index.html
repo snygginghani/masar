@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Masar is an approval-first opportunity engine for internships and early-career roles in any field, anywhere.">
+  <title>Masar — opportunity engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Main navigation">
+      <a class="brand" href="#" data-route="discover" aria-label="Masar home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 36 36" fill="none"><path d="M7 25.5 15.5 17l5 5L29 13.5"/><path d="M20.5 13.5H29V22"/></svg>
+        </span>
+        <span><strong>masar</strong><small>opportunity desk</small></span>
+      </a>
+
+      <nav class="nav-list">
+        <button class="nav-item is-active" data-route="discover" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          <span>Discover</span>
+        </button>
+        <button class="nav-item" data-route="applications" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+          <span>Application desk</span>
+          <span class="nav-count" id="draft-count" hidden>0</span>
+        </button>
+        <button class="nav-item" data-route="profile" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>
+          <span>My profile</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="location-chip">
+          <span class="pulse" aria-hidden="true"></span>
+          <span><strong id="search-location-summary">Set your search area</strong><small>roles · organizations · contacts</small></span>
+        </div>
+        <button class="nav-item" data-route="settings" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          <span>Settings</span>
+          <span class="connection-dot" id="connection-dot" aria-label="Not connected"></span>
+        </button>
+      </div>
+    </aside>
+
+    <main id="main-content" tabindex="-1">
+      <header class="mobile-header">
+        <a class="brand" href="#" data-route="discover"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 36 36" fill="none"><path d="M7 25.5 15.5 17l5 5L29 13.5"/><path d="M20.5 13.5H29V22"/></svg></span><strong>masar</strong></a>
+        <button class="icon-button" id="mobile-settings" type="button" aria-label="Open settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 1 1-7-7"/></svg>
+        </button>
+      </header>
+
+      <section class="view is-visible" id="view-discover" data-view="discover">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow"><span class="eyebrow-line"></span> Your opportunity radar</p>
+            <h1>Find the roles.<br><em>Reach the right teams.</em></h1>
+            <p class="page-intro">Masar checks live early-career roles in your field, then maps relevant organizations worth approaching—even when they have not advertised an internship.</p>
+          </div>
+          <div class="amman-stamp" aria-hidden="true">
+            <svg viewBox="0 0 190 110" fill="none"><path d="M4 78c20-3 25-17 42-16 14 1 16 11 30 10 20-2 23-37 46-36 19 1 21 26 36 28 8 1 17-4 28-14"/><path d="M4 89c29-7 45 4 66-2 15-5 23-18 40-17 18 1 21 12 40 12 15 0 21-8 36-10"/><path d="M19 60V46h14v13M26 46V32h7v14M88 69V52h18v16M92 52V41h10v11M147 62V43h15v18"/></svg>
+            <span>ANY FIELD<br>ANYWHERE</span>
+          </div>
+        </div>
+
+        <div class="search-panel">
+          <div class="search-panel-top">
+            <label class="search-field" for="job-keywords">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <span class="sr-only">Job keywords</span>
+              <input id="job-keywords" placeholder="Target roles or keywords" autocomplete="off">
+            </label>
+            <button class="button button-dark" id="discover-button" type="button">
+              <span>Run opportunity scan</span>
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+            </button>
+          </div>
+          <div class="search-targets">
+            <label class="target-field"><span>Field / major</span><input id="job-discipline" placeholder="e.g. architecture"></label>
+            <label class="target-field"><span>City or region</span><input id="job-location" placeholder="e.g. Barcelona or Remote" autocomplete="address-level2"></label>
+            <label class="target-field"><span>Country</span><input id="job-country" placeholder="e.g. Spain" autocomplete="country-name"></label>
+          </div>
+          <div class="search-options">
+            <label class="outreach-option" for="include-outreach">
+              <input id="include-outreach" type="checkbox" checked>
+              <span class="option-control" aria-hidden="true"></span>
+              <span><strong>Include proactive organization outreach</strong><small>Find relevant teams without a posted internship. Published contacts only.</small></span>
+            </label>
+          </div>
+          <div class="search-meta">
+            <span id="search-readiness"><i class="status-pip"></i> Add your key to run a live search</span>
+            <span>Three research lanes · source and contact checks</span>
+          </div>
+        </div>
+
+        <section class="metrics" aria-label="Opportunity search summary" aria-live="polite">
+          <article><span>Found</span><strong id="metric-found">0</strong><small>verified leads</small></article>
+          <article><span>Open roles</span><strong id="metric-openings">0</strong><small>posted opportunities</small></article>
+          <article><span>Outreach</span><strong id="metric-outreach">0</strong><small>companies to approach</small></article>
+          <article><span>Selected</span><strong id="metric-selected">0</strong><small>ready to prepare</small></article>
+          <article><span>Applied</span><strong id="metric-applied">0</strong><small>sent or completed</small></article>
+        </section>
+
+        <div class="section-bar">
+          <div>
+            <h2>Opportunity radar <span id="jobs-total">0</span></h2>
+            <p id="jobs-subtitle">Complete your profile, then start a live search.</p>
+          </div>
+          <div class="filter-row" role="group" aria-label="Filter jobs">
+            <button class="filter-chip is-active" type="button" data-filter="all" aria-pressed="true">All</button>
+            <button class="filter-chip" type="button" data-filter="openings" aria-pressed="false">Open roles</button>
+            <button class="filter-chip" type="button" data-filter="outreach" aria-pressed="false">Company outreach</button>
+            <button class="filter-chip" type="button" data-filter="strong" aria-pressed="false">Strong fit</button>
+            <button class="filter-chip" type="button" data-filter="email" aria-pressed="false">Email ready</button>
+            <button class="filter-chip" type="button" data-filter="selected" aria-pressed="false">Selected</button>
+          </div>
+        </div>
+
+        <div class="jobs-list" id="jobs-list" aria-live="polite"></div>
+      </section>
+
+      <section class="view" id="view-applications" data-view="applications">
+        <div class="simple-head">
+          <p class="eyebrow"><span class="eyebrow-line"></span> Review before anything leaves</p>
+          <h1>Application <em>desk.</em></h1>
+          <p>Read, edit, and approve each draft. Posted roles use their application route; proactive opportunities become honest internship inquiries that never claim a vacancy exists.</p>
+        </div>
+        <div class="approval-banner">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V7l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>
+          <div><strong>You stay in control.</strong><span>Nothing is sent automatically. Every message needs your selection, review, approval, and final send confirmation.</span></div>
+        </div>
+        <div class="application-list" id="application-list"></div>
+      </section>
+
+      <section class="view" id="view-profile" data-view="profile">
+        <div class="simple-head">
+          <p class="eyebrow"><span class="eyebrow-line"></span> The signal behind your matches</p>
+          <h1>Your <em>profile.</em></h1>
+          <p>Keep this honest and specific. Masar uses it with your CV to score roles and prepare applications.</p>
+        </div>
+        <div class="profile-layout">
+          <form class="card form-card" id="profile-form">
+            <div class="card-head"><div><span class="card-index">01</span><h2>Candidate details</h2></div><span class="required-note">* Required</span></div>
+            <div class="form-grid">
+              <label class="field"><span>Full name *</span><input name="full_name" required autocomplete="name"></label>
+              <label class="field"><span>Email *</span><input name="email" type="email" required autocomplete="email"></label>
+              <label class="field"><span>Phone</span><input name="phone" autocomplete="tel"></label>
+              <label class="field"><span>City / region</span><input name="city" autocomplete="address-level2"></label>
+              <label class="field"><span>Country</span><input name="country" autocomplete="country-name"></label>
+              <label class="field"><span>University</span><input name="university"></label>
+              <label class="field"><span>Degree / major</span><input name="degree"></label>
+              <label class="field"><span>Graduation</span><input name="graduation" placeholder="e.g. June 2027"></label>
+              <label class="field"><span>Availability</span><input name="availability" placeholder="e.g. Immediately"></label>
+              <label class="field"><span>LinkedIn</span><input name="linkedin" type="url" placeholder="https://linkedin.com/in/..."></label>
+              <label class="field"><span>Portfolio / GitHub</span><input name="portfolio" type="url" placeholder="https://github.com/..."></label>
+              <label class="field field-wide"><span>Target roles</span><input name="preferred_roles" placeholder="ML intern, data analyst, AI research assistant"><small>Separate items with commas.</small></label>
+              <label class="field field-wide"><span>Disciplines / fields</span><input name="disciplines" placeholder="Computer science, architecture, marketing"><small>Used to discover specialist organizations as well as posted roles.</small></label>
+              <label class="field field-wide"><span>Search locations</span><input name="search_locations" placeholder="Madrid, Dubai, Remote"><small>The first location becomes your default; you can change it on every scan.</small></label>
+              <label class="field field-wide"><span>Core skills</span><input name="skills" placeholder="Python, SQL, pandas, scikit-learn"><small>Only include skills you can discuss in an interview.</small></label>
+              <label class="field"><span>Internship type</span><select name="internship_type"><option>Any</option><option>Paid only</option><option>Part-time</option><option>Full-time</option></select></label>
+              <label class="field"><span>Weekly availability</span><input name="weekly_hours" placeholder="e.g. 30 hours"></label>
+              <label class="field"><span>Work authorization</span><input name="work_authorization" placeholder="e.g. Authorized in Spain"></label>
+              <label class="field"><span>Compensation</span><select name="salary_preference"><option>Open to discuss</option><option>Paid roles only</option><option>Unpaid is acceptable</option></select></label>
+              <fieldset class="field field-wide checkbox-fieldset"><legend>Workplace preference</legend><label><input type="checkbox" name="workplace" value="On-site" checked><span>On-site</span></label><label><input type="checkbox" name="workplace" value="Hybrid" checked><span>Hybrid</span></label><label><input type="checkbox" name="workplace" value="Remote"><span>Remote</span></label></fieldset>
+              <label class="field field-wide"><span>Anything the application should know?</span><textarea name="notes" rows="3" placeholder="Languages, schedule constraints, industries you prefer..."></textarea></label>
+              <label class="consent field-wide"><input type="checkbox" name="ai_consent" checked><span><strong>Use my CV for matching and drafts.</strong> Relevant CV text goes only to the provider you choose. With Ollama, model processing stays local.</span></label>
+            </div>
+            <div class="form-actions"><span id="profile-save-status"></span><button class="button button-dark" type="submit">Save profile <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button></div>
+          </form>
+
+          <aside class="profile-aside">
+            <div class="card upload-card">
+              <span class="card-index">02</span><h2>Your CV</h2>
+              <p>PDF, DOCX, TXT, or MD. Max 10 MB. It stays on this computer.</p>
+              <label class="dropzone" id="cv-dropzone">
+                <input type="file" id="cv-input" accept=".pdf,.docx,.txt,.md">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 14v5h14v-5"/></svg>
+                <strong id="cv-label">Choose your CV</strong>
+                <span>or drop it here</span>
+              </label>
+              <div class="file-state" id="cv-state" hidden></div>
+            </div>
+            <div class="aside-note">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+              <p><strong>Tip:</strong> Add project outcomes, tools, and links to your CV. Matching works better with evidence than keyword lists.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-settings" data-view="settings">
+        <div class="simple-head">
+          <p class="eyebrow"><span class="eyebrow-line"></span> Private, local connections</p>
+          <h1>Connections & <em>settings.</em></h1>
+          <p>Keys and passwords live in server memory only. Restarting Masar clears them.</p>
+        </div>
+        <div class="settings-grid">
+          <form class="card settings-card" id="ai-form">
+            <div class="integration-head">
+              <div class="integration-icon" id="ai-provider-icon">OR</div>
+              <div><h2>AI & research</h2><p>Choose a hosted provider or a local Ollama model.</p></div>
+              <span class="status-badge" id="ai-status">Not connected</span>
+            </div>
+            <label class="field"><span>Provider</span><select name="provider" id="ai-provider"><option value="openrouter">OpenRouter</option><option value="openai">OpenAI</option><option value="ollama">Ollama · local</option></select></label>
+            <label class="field" id="ai-key-field"><span id="ai-key-label">OpenRouter API key</span><div class="password-wrap"><input name="api_key" type="password" autocomplete="off" placeholder="sk-or-v1-..."><button type="button" class="reveal-button" aria-label="Show API key">Show</button></div><small id="ai-key-help">Kept only until this server stops.</small></label>
+            <label class="field"><span>Model</span><input name="model" id="ai-model" list="ollama-model-list" value="openai/gpt-5-mini"><small id="ai-model-help">Use an OpenRouter model with web-search tool support.</small></label>
+            <datalist id="ollama-model-list"></datalist>
+            <div class="ollama-fields" id="ollama-fields" hidden>
+              <label class="field"><span>Ollama server</span><input name="base_url" value="http://127.0.0.1:11434"><small>Masar talks to Ollama's local API. No model data is sent to a hosted AI provider.</small></label>
+              <label class="field"><span>Live-search source · optional</span><select id="ollama-search-mode"><option value="none">None · local matching and drafts only</option><option value="ollama">Ollama Web Search</option><option value="searxng">Local SearXNG</option></select></label>
+              <label class="field" id="ollama-search-key-field" hidden><span>Ollama Web Search key</span><div class="password-wrap"><input name="ollama_search_api_key" type="password" autocomplete="off"><button type="button" class="reveal-button" aria-label="Show search key">Show</button></div><small>Optional hosted search only; model reasoning still runs locally.</small></label>
+              <label class="field" id="searxng-url-field" hidden><span>SearXNG URL</span><input name="searxng_url" placeholder="http://127.0.0.1:8080"><small>Use your own SearXNG instance for a fully self-hosted search path.</small></label>
+              <div class="hardware-card" id="hardware-card" aria-live="polite"><strong>Inspecting this computer…</strong></div>
+            </div>
+            <button class="button button-dark button-full" type="submit">Connect selected provider</button>
+          </form>
+
+          <form class="card settings-card" id="smtp-form">
+            <div class="integration-head">
+              <div class="integration-icon email-icon">@</div>
+              <div><h2>Email sender</h2><p>Send only the drafts you explicitly approve.</p></div>
+              <span class="status-badge" id="smtp-status">Not connected</span>
+            </div>
+            <label class="field"><span>Quick setup</span><select id="smtp-preset"><option value="">Custom SMTP</option><option value="gmail" selected>Gmail</option><option value="outlook">Outlook / Microsoft 365</option></select></label>
+            <div class="preset-help" id="smtp-preset-help" hidden></div>
+            <div class="split-fields"><label class="field"><span>SMTP host</span><input name="host" placeholder="smtp.gmail.com" required></label><label class="field short-field"><span>Port</span><input name="port" type="number" value="587" required></label></div>
+            <label class="field"><span id="smtp-username-label">Username</span><input name="username" autocomplete="username" required></label>
+            <label class="field"><span>App password</span><div class="password-wrap"><input name="password" type="password" autocomplete="new-password" required><button type="button" class="reveal-button" aria-label="Show app password">Show</button></div><small>For Gmail, use an app password—not your normal password.</small></label>
+            <label class="field"><span>From email</span><input name="from_email" type="email" required></label>
+            <label class="inline-check"><input name="use_tls" type="checkbox" checked><span>Use TLS encryption</span></label>
+            <button class="button button-dark button-full" type="submit">Save email connection</button>
+          </form>
+        </div>
+        <section class="card tutorial-card" aria-labelledby="gmail-guide-title">
+          <div class="tutorial-copy"><span class="card-index">GUIDE</span><h2 id="gmail-guide-title">Create a Gmail App Password</h2><p>Gmail SMTP requires 2-Step Verification and a 16-character App Password. Never paste your normal Google password into Masar.</p><ol><li>Enable 2-Step Verification for your Google account.</li><li>Open App Passwords and create one for Masar.</li><li>Paste the generated password above; spaces are removed automatically.</li></ol><p><a href="https://support.google.com/accounts/answer/185833?hl=en" target="_blank" rel="noopener noreferrer">Read Google’s official instructions</a> · <a href="https://www.youtube.com/watch?v=ckfyTVgF1T4" target="_blank" rel="noopener noreferrer">Open this video on YouTube</a></p></div>
+          <div class="tutorial-video"><iframe src="https://www.youtube-nocookie.com/embed/ckfyTVgF1T4" title="How to create a Gmail App Password" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
+        </section>
+        <div class="danger-zone">
+          <div><h2>Clear local data</h2><p>Removes your profile, uploaded CV, job list, drafts, and in-memory connections.</p></div>
+          <button class="button button-danger" id="clear-data" type="button">Clear everything</button>
+        </div>
+      </section>
+
+      <nav class="mobile-nav" aria-label="Mobile navigation">
+        <button class="is-active" data-route="discover" type="button"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>Discover</span></button>
+        <button data-route="applications" type="button"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Desk</span></button>
+        <button data-route="profile" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg><span>Profile</span></button>
+      </nav>
+    </main>
+  </div>
+
+  <div class="selection-bar" id="selection-bar" hidden>
+    <div><span id="selection-count">0</span><p><strong>opportunities selected</strong><small>Next: review tailored applications</small></p></div>
+    <button class="button button-coral" id="prepare-button" type="button">Prepare applications <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+  </div>
+
+  <dialog class="job-dialog" id="job-dialog" aria-labelledby="dialog-job-title">
+    <div class="dialog-top"><span class="status-badge" id="dialog-source"></span><button class="icon-button" type="button" data-close-dialog aria-label="Close job details"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div id="job-dialog-content"></div>
+  </dialog>
+
+  <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title">
+    <button class="icon-button dialog-close" type="button" data-close-confirm aria-label="Close confirmation"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    <div class="confirm-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V7l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+    <h2 id="confirm-title">Send approved emails?</h2>
+    <p id="confirm-copy">This will send the approved application emails now. This cannot be undone.</p>
+    <div class="confirm-actions"><button class="button button-light" type="button" data-close-confirm>Not yet</button><button class="button button-coral" id="confirm-send" type="button">Send now</button></div>
+  </dialog>
+
+  <div class="onboarding" id="onboarding" hidden>
+    <div class="onboarding-art" aria-hidden="true">
+      <div class="onboarding-brand"><span class="brand-mark"><svg viewBox="0 0 36 36" fill="none"><path d="M7 25.5 15.5 17l5 5L29 13.5"/><path d="M20.5 13.5H29V22"/></svg></span><strong>masar</strong></div>
+      <div class="art-copy"><span>OPEN / 01</span><h2>Your next move<br>starts <em>here.</em></h2><p>Focused internship discovery for every field, from wherever you are.</p></div>
+      <svg class="hill-line" viewBox="0 0 600 260" fill="none"><path d="M0 179c70-9 89-74 155-70 56 4 69 48 122 39 72-12 78-108 164-106 64 2 82 78 159 77"/><path d="M0 218c87-14 147 15 219-13 53-20 82-62 146-59 72 3 95 47 164 39 28-3 48-14 71-26"/><path d="M55 119V77h48v31M77 77V45h19v32M330 104V57h61v54M343 57V27h35v30M474 102V47h51v69"/></svg>
+    </div>
+    <div class="onboarding-form-wrap">
+      <div class="onboarding-progress"><span id="onboarding-step-label">Step 1 of 3</span><div><i class="is-active"></i><i></i><i></i></div></div>
+      <form id="onboarding-form">
+        <section class="onboarding-step is-active" data-step="1">
+          <p class="eyebrow"><span class="eyebrow-line"></span> Let’s make this yours</p>
+          <h1>Start with the <em>basics.</em></h1>
+          <p class="step-intro">This takes about three minutes. You can change everything later.</p>
+          <div class="form-grid">
+            <label class="field field-wide"><span>Full name *</span><input name="full_name" required autocomplete="name" autofocus></label>
+            <label class="field field-wide"><span>Email *</span><input name="email" type="email" required autocomplete="email"></label>
+            <label class="field"><span>Phone</span><input name="phone" autocomplete="tel"></label>
+            <label class="field"><span>University</span><input name="university"></label>
+            <label class="field"><span>City / region</span><input name="city" autocomplete="address-level2"></label>
+            <label class="field"><span>Country</span><input name="country" autocomplete="country-name"></label>
+            <label class="field field-wide"><span>Degree / major</span><input name="degree" placeholder="e.g. BSc Computer Science"></label>
+            <label class="field"><span>Graduation</span><input name="graduation" placeholder="e.g. June 2027"></label>
+            <label class="field"><span>Availability</span><input name="availability" placeholder="e.g. Immediately"></label>
+          </div>
+        </section>
+        <section class="onboarding-step" data-step="2">
+          <p class="eyebrow"><span class="eyebrow-line"></span> Define your direction</p>
+          <h1>What should we <em>look for?</em></h1>
+          <p class="step-intro">Specific targets produce a much cleaner shortlist.</p>
+          <div class="form-grid">
+            <label class="field field-wide"><span>Target roles</span><input name="preferred_roles" placeholder="Design intern, lab assistant, finance trainee"><small>Separate items with commas.</small></label>
+            <label class="field field-wide"><span>Your fields / disciplines</span><input name="disciplines" placeholder="Architecture, biology, finance"><small>Masar uses this to find specialist organizations.</small></label>
+            <label class="field field-wide"><span>Search locations</span><input name="search_locations" placeholder="Your city, another region, Remote"><small>The first entry becomes your default search area.</small></label>
+            <label class="field field-wide"><span>Your strongest skills</span><input name="skills" placeholder="Python, SQL, pandas, scikit-learn"><small>Only include skills you can defend in an interview.</small></label>
+            <label class="field"><span>Internship type</span><select name="internship_type"><option>Any</option><option>Paid only</option><option>Part-time</option><option>Full-time</option></select></label>
+            <label class="field"><span>Weekly hours</span><input name="weekly_hours" placeholder="e.g. 30 hours"></label>
+            <fieldset class="field field-wide checkbox-fieldset"><legend>Where can you work?</legend><label><input type="checkbox" name="workplace" value="On-site" checked><span>On-site</span></label><label><input type="checkbox" name="workplace" value="Hybrid" checked><span>Hybrid</span></label><label><input type="checkbox" name="workplace" value="Remote"><span>Remote</span></label></fieldset>
+          </div>
+        </section>
+        <section class="onboarding-step" data-step="3">
+          <p class="eyebrow"><span class="eyebrow-line"></span> Give Masar context</p>
+          <h1>Add your <em>CV.</em></h1>
+          <p class="step-intro">We extract text locally, then use it only for matching and approved drafts.</p>
+          <label class="dropzone onboarding-dropzone">
+            <input type="file" name="cv" accept=".pdf,.docx,.txt,.md">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 14v5h14v-5"/></svg>
+            <strong id="onboarding-cv-label">Choose your CV</strong><span>PDF, DOCX, TXT, or MD · max 10 MB</span>
+          </label>
+          <label class="consent onboarding-consent"><input type="checkbox" name="ai_consent" checked><span><strong>I agree to CV-assisted matching.</strong> Relevant CV text goes only to the AI provider I choose; Ollama processing stays local.</span></label>
+          <div class="what-next"><span>Then what?</span><ol><li>Choose an AI provider</li><li>Find live opportunities</li><li>Select what you want</li><li>Review every application</li></ol></div>
+        </section>
+        <div class="onboarding-actions">
+          <button class="text-button" id="onboarding-back" type="button" hidden><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H5M10 7l-5 5 5 5"/></svg> Back</button>
+          <button class="button button-coral" id="onboarding-next" type="button">Continue <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

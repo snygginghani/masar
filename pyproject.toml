@@ -1,0 +1,33 @@
+[project]
+name = "masar-opportunity-engine"
+version = "0.3.0"
+requires-python = ">=3.11"
+description = "A local, approval-first internship and early-career opportunity engine for any field and location"
+dependencies = [
+    "fastapi>=0.116,<1",
+    "httpx>=0.28,<1",
+    "pypdf>=6,<7",
+    "python-docx>=1.2,<2",
+    "python-multipart>=0.0.20,<1",
+    "uvicorn[standard]>=0.35,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4,<9",
+]
+
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["masar_app"]
+
+[project.urls]
+Homepage = "https://github.com/snygginghani/masar"
+Issues = "https://github.com/snygginghani/masar/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
