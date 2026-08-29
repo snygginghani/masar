@@ -120,13 +120,19 @@
             <h2>Opportunity radar <span id="jobs-total">0</span></h2>
             <p id="jobs-subtitle">Complete your profile, then start a live search.</p>
           </div>
-          <div class="filter-row" role="group" aria-label="Filter jobs">
-            <button class="filter-chip is-active" type="button" data-filter="all" aria-pressed="true">All</button>
-            <button class="filter-chip" type="button" data-filter="openings" aria-pressed="false">Open roles</button>
-            <button class="filter-chip" type="button" data-filter="outreach" aria-pressed="false">Company outreach</button>
-            <button class="filter-chip" type="button" data-filter="strong" aria-pressed="false">Strong fit</button>
-            <button class="filter-chip" type="button" data-filter="email" aria-pressed="false">HR/contact found</button>
-            <button class="filter-chip" type="button" data-filter="selected" aria-pressed="false">Selected</button>
+          <div class="radar-controls">
+            <button class="button button-light button-compact" id="find-contacts-button" type="button" title="Search public LinkedIn profiles, hiring posts, and official company pages">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 18c.5-3 2.4-5 5.5-5 1.4 0 2.6.4 3.5 1.1"/><circle cx="17" cy="16" r="3"/><path d="m19.3 18.3 2.2 2.2"/></svg>
+              <span>Search HR on LinkedIn</span>
+            </button>
+            <div class="filter-row" role="group" aria-label="Filter jobs">
+              <button class="filter-chip is-active" type="button" data-filter="all" aria-pressed="true">All</button>
+              <button class="filter-chip" type="button" data-filter="openings" aria-pressed="false">Open roles</button>
+              <button class="filter-chip" type="button" data-filter="outreach" aria-pressed="false">Company outreach</button>
+              <button class="filter-chip" type="button" data-filter="strong" aria-pressed="false">Strong fit</button>
+              <button class="filter-chip" type="button" data-filter="email" aria-pressed="false">HR/contact found</button>
+              <button class="filter-chip" type="button" data-filter="selected" aria-pressed="false">Selected</button>
+            </div>
           </div>
         </div>
 

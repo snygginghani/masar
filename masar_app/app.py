@@ -235,6 +235,9 @@ class DiscoverPayload(BaseModel):
 class ContactDiscoverPayload(BaseModel):
     job_ids: list[str] = Field(default_factory=list)
     max_companies: int = Field(default=12, ge=1, le=20)
+    field: str = Field(default="", max_length=500)
+    location: str = Field(default="", max_length=120)
+    country: str = Field(default="", max_length=120)
 
 
 class SelectionPayload(BaseModel):
@@ -281,6 +284,11 @@ def row_dict(row: sqlite3.Row) -> dict[str, Any]:
                 "verified": bool(item.get("verified")),
             }
         ]
+    for contact in item.get("public_contacts") or []:
+        if isinstance(contact, dict) and not contact.get("source_type"):
+            contact["source_type"] = public_contact_source_type(
+                str(contact.get("url") or ""), item
+            )
     return item
 
 
@@ -830,7 +838,7 @@ Citations: {json.dumps(citations, ensure_ascii=False)[:18000]}
         return extract_json_array(repaired.get("content")), len(citations)
 
 
-async def research_public_contacts(
+async def research_public_contacts_batch(
     jobs: list[dict[str, Any]], *, field: str, location: str, country: str
 ) -> tuple[list[dict[str, Any]], int]:
     companies = [
@@ -839,24 +847,40 @@ async def research_public_contacts(
             "official_domain": job.get("official_domain") or public_hostname(job.get("url") or ""),
             "opportunity_url": job.get("url") or "",
         }
-        for job in jobs[:20]
+        for job in jobs[:4]
     ]
     if not companies:
         return [], 0
-    company_names = " OR ".join(f'"{item["company"]}"' for item in companies[:8])
+    company_names = " OR ".join(f'"{item["company"]}"' for item in companies)
     target_area = ", ".join(part for part in (location, country) if part)
+    official_domains = [item["official_domain"] for item in companies if item["official_domain"]]
+    official_sites = " OR ".join(f"site:{domain}" for domain in official_domains)
     queries = [
-        f"({company_names}) recruiter OR hiring OR talent acquisition {target_area}",
-        f"site:linkedin.com/in ({company_names}) recruiter OR HR OR people {target_area}",
-        f"({company_names}) careers contact recruitment email {target_area}",
+        (
+            f'site:linkedin.com/in ({company_names}) '
+            f'("talent acquisition" OR recruiter OR "human resources" OR "people partner" OR "campus recruiter") '
+            f'{target_area}'
+        ),
+        (
+            f'site:linkedin.com/posts ({company_names}) '
+            f'("we are hiring" OR "we\'re hiring" OR internship OR "graduate program" OR "early careers") '
+            f'{target_area}'
+        ),
+        (
+            f'({official_sites}) (recruiter OR careers OR hiring OR "talent acquisition" OR "university relations") '
+            f'{target_area}'
+            if official_sites
+            else f'({company_names}) official careers recruiting team contact {target_area}'
+        ),
     ]
     prompt = f"""
 <search_queries>{json.dumps(queries, ensure_ascii=False)}</search_queries>
 
 Find up to three CURRENT, publicly listed professional recruiting contacts for each supplied organization.
 Relevant roles include recruiter, talent acquisition, HR, people operations, university relations, campus
-hiring, early-careers recruiting, or internship coordination. Prefer official team/staff pages, official
-career pages, and public professional profiles that clearly show the person's current employer and role.
+hiring, early-careers recruiting, or internship coordination. Search three evidence lanes: public LinkedIn
+personal profiles, public LinkedIn hiring posts, and the organizations' official websites. A LinkedIn result
+must be a public professional profile or public hiring post that clearly shows the current employer and role.
 
 The organizations are relevant to the candidate's field ({field}) in {target_area}:
 {json.dumps(companies, ensure_ascii=False)}
@@ -865,12 +889,14 @@ Strict rules:
 - Return only a person or recruiting inbox explicitly published on the cited contact URL.
 - The page must connect the person to the named organization and a recruiting/HR role.
 - Never infer an email pattern, generate an address, use enrichment databases, or include private data.
+- Only include an email when the cited page publishes it as a professional/work contact.
 - Exclude personal/free-provider email addresses, former employees, and people whose current affiliation is unclear.
 - A name without an email is useful when its public professional source is available.
 - It is correct to return no contact for a company when evidence is weak.
 
 Return JSON with one key, "contacts", containing objects with exactly these keys:
-company, name, role, email, url, source. Accuracy is more important than count.
+company, name, role, email, url, source, source_type. source_type must be one of linkedin_profile,
+linkedin_post, official_company_page, or other_professional_source. Accuracy is more important than count.
 """
     message = await ai_chat(
         [
@@ -897,7 +923,7 @@ company, name, role, email, url, source. Accuracy is more important than count.
                     "role": "user",
                     "content": (
                         "Return one JSON object with key contacts. Do not add or infer facts. Required keys: "
-                        "company, name, role, email, url, source.\nResponse: "
+                        "company, name, role, email, url, source, source_type.\nResponse: "
                         + message_text(message.get("content"))[:22000]
                         + "\nCitations: "
                         + json.dumps(citations, ensure_ascii=False)[:16000]
@@ -907,6 +933,66 @@ company, name, role, email, url, source. Accuracy is more important than count.
             json_mode=True,
         )
         return extract_json_array(repaired.get("content")), len(citations)
+
+
+async def research_public_contacts(
+    jobs: list[dict[str, Any]], *, field: str, location: str, country: str
+) -> tuple[list[dict[str, Any]], int]:
+    """Research small company batches so each employer gets targeted source coverage."""
+    eligible = [job for job in jobs[:20] if len(job.get("public_contacts") or []) < 3]
+    batches = [eligible[index : index + 4] for index in range(0, len(eligible), 4)]
+    if not batches:
+        return [], 0
+    semaphore = asyncio.Semaphore(3)
+
+    async def run_batch(batch: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+        async with semaphore:
+            return await research_public_contacts_batch(
+                batch, field=field, location=location, country=country
+            )
+
+    results = await asyncio.gather(*(run_batch(batch) for batch in batches), return_exceptions=True)
+    contacts: list[dict[str, Any]] = []
+    citations = 0
+    seen: set[str] = set()
+    failures: list[Exception] = []
+    for result in results:
+        if isinstance(result, Exception):
+            failures.append(result)
+            continue
+        records, citation_count = result
+        citations += citation_count
+        for record in records:
+            key = "|".join(
+                (
+                    company_key(str(record.get("company") or "")),
+                    str(record.get("email") or "").strip().casefold(),
+                    normalize_url(record.get("url")).casefold(),
+                    str(record.get("name") or "").strip().casefold(),
+                )
+            )
+            if key not in seen:
+                seen.add(key)
+                contacts.append(record)
+    if failures and len(failures) == len(results):
+        raise failures[0]
+    return contacts, citations
+
+
+def public_contact_source_type(url: str, job: dict[str, Any]) -> str:
+    parsed = urlparse(url)
+    host = public_hostname(url)
+    path = parsed.path.casefold().rstrip("/")
+    if host == "linkedin.com" or host.endswith(".linkedin.com"):
+        if path.startswith("/in/"):
+            return "linkedin_profile"
+        if path.startswith("/posts/") or path.startswith("/feed/update"):
+            return "linkedin_post"
+        return "other_professional_source"
+    official_domain = str(job.get("official_domain") or "").casefold().removeprefix("www.")
+    if official_domain and (host == official_domain or host.endswith(f".{official_domain}")):
+        return "official_company_page"
+    return "other_professional_source"
 
 
 def normalize_public_contact(
@@ -928,6 +1014,7 @@ def normalize_public_contact(
         "email": email,
         "url": url,
         "source": str(raw.get("source") or public_hostname(url)).strip()[:200],
+        "source_type": public_contact_source_type(url, job),
         "verified": False,
     }
 
@@ -937,8 +1024,9 @@ async def enrich_public_contacts(
 ) -> tuple[int, int]:
     if not jobs:
         return 0, 0
+    research_jobs = [job for job in jobs if len(job.get("public_contacts") or []) < 3]
     raw_contacts, citation_count = await research_public_contacts(
-        jobs, field=field, location=location, country=country
+        research_jobs, field=field, location=location, country=country
     )
     candidates: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for raw in raw_contacts:
@@ -1781,14 +1869,18 @@ async def discover_contacts(payload: ContactDiscoverPayload) -> dict[str, Any]:
     jobs = [row_dict(row) for row in rows]
     if not jobs:
         raise HTTPException(404, "No verified opportunities are available for contact research.")
+    before_count = sum(len(job.get("public_contacts") or []) for job in jobs)
+    research_jobs = [job for job in jobs if len(job.get("public_contacts") or []) < 3]
     locations = normalize_list(profile.get("search_locations"), 8)
-    location = (locations[0] if locations else str(profile.get("city") or "")).strip()
-    country = str(profile.get("country") or "").strip()
-    field = ", ".join(normalize_list(profile.get("disciplines"), 5)) or str(
+    location = payload.location.strip() or (
+        locations[0] if locations else str(profile.get("city") or "")
+    ).strip()
+    country = payload.country.strip() or str(profile.get("country") or "").strip()
+    field = payload.field.strip() or ", ".join(normalize_list(profile.get("disciplines"), 5)) or str(
         profile.get("degree") or "the candidate's field"
     )
-    contact_count, sources_scanned = await enrich_public_contacts(
-        jobs, field=field, location=location, country=country
+    _, sources_scanned = await enrich_public_contacts(
+        research_jobs, field=field, location=location, country=country
     )
     with db() as connection:
         for job in jobs:
@@ -1803,12 +1895,18 @@ async def discover_contacts(payload: ContactDiscoverPayload) -> dict[str, Any]:
                     job["id"],
                 ),
             )
+    after_count = sum(len(job.get("public_contacts") or []) for job in jobs)
     return {
         "ok": True,
-        "companies_checked": len(jobs),
-        "public_contacts_found": contact_count,
+        "companies_checked": len(research_jobs),
+        "companies_with_contacts": sum(bool(job.get("public_contacts")) for job in jobs),
+        "public_contacts_found": after_count,
+        "new_contacts_found": max(0, after_count - before_count),
         "sources_scanned": sources_scanned,
-        "note": "Only publicly evidenced professional recruiting contacts were saved.",
+        "note": (
+            "Searched public LinkedIn profiles, public LinkedIn hiring posts, and official company pages. "
+            "Only evidenced professional contacts and published work emails were saved."
+        ),
     }
 
 

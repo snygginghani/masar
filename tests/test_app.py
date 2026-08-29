@@ -322,5 +322,57 @@ def test_public_contact_enrichment_keeps_only_verified_professional_contacts(
     assert count == 1
     assert sources == 2
     assert jobs[0]["public_contacts"][0]["email"] == "dana@example.com"
+    assert jobs[0]["public_contacts"][0]["source_type"] == "official_company_page"
     assert jobs[0]["contact_name"] == "Dana Recruiter"
     assert all(contact["email"] != "pat@gmail.com" for contact in jobs[0]["public_contacts"])
+
+
+def test_public_contact_research_uses_small_company_batches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    batch_sizes: list[int] = []
+    jobs = [
+        {
+            "company": f"Company {index}",
+            "url": f"https://company{index}.example/careers",
+            "official_domain": f"company{index}.example",
+            "public_contacts": [],
+        }
+        for index in range(9)
+    ]
+
+    async def fake_batch(batch, **kwargs):
+        batch_sizes.append(len(batch))
+        company = batch[0]["company"]
+        return ([{
+            "company": company,
+            "name": f"Recruiter at {company}",
+            "role": "Recruiter",
+            "email": "",
+            "url": f"https://linkedin.com/in/recruiter-{company.lower().replace(' ', '-')}",
+            "source": "LinkedIn",
+            "source_type": "linkedin_profile",
+        }], 2)
+
+    monkeypatch.setattr(app_module, "research_public_contacts_batch", fake_batch)
+    contacts, sources = asyncio.run(
+        app_module.research_public_contacts(
+            jobs, field="Data Science", location="Amman", country="Jordan"
+        )
+    )
+    assert sorted(batch_sizes) == [1, 4, 4]
+    assert len(contacts) == 3
+    assert sources == 6
+
+
+def test_public_contact_source_type_is_inferred_from_verified_url() -> None:
+    job = {"official_domain": "example.com"}
+    assert app_module.public_contact_source_type(
+        "https://www.linkedin.com/in/dana-recruiter", job
+    ) == "linkedin_profile"
+    assert app_module.public_contact_source_type(
+        "https://linkedin.com/posts/dana_hiring-activity-123", job
+    ) == "linkedin_post"
+    assert app_module.public_contact_source_type(
+        "https://careers.example.com/people", job
+    ) == "official_company_page"

@@ -67,6 +67,7 @@ function toast(title, message = "", type = "success") {
 
 function setButtonBusy(button, busy, label = "Working") {
   if (!button) return;
+  button.setAttribute("aria-busy", String(busy));
   if (busy) {
     button.dataset.oldHtml = button.innerHTML;
     button.disabled = true;
@@ -188,6 +189,14 @@ function jobCard(job) {
 function renderJobs() {
   const list = $("#jobs-list");
   const jobs = filteredJobs();
+  const contactButton = $("#find-contacts-button");
+  const contactCandidates = appState.jobs.filter((job) => !job.demo && job.verified && (job.public_contacts || []).length < 3);
+  if (contactButton && contactButton.getAttribute("aria-busy") !== "true") {
+    contactButton.disabled = contactCandidates.length === 0;
+    contactButton.title = contactCandidates.length
+      ? `Search public professional contacts for ${Math.min(contactCandidates.length, 12)} saved companies`
+      : "Run an opportunity scan first, or all saved companies already have three contacts";
+  }
   if (!appState.jobs.length) {
     list.innerHTML = `
       <div class="empty-state"><div>
@@ -208,6 +217,17 @@ function renderJobs() {
   list.innerHTML = jobs.map(jobCard).join("");
 }
 
+function contactSourceLabel(contact) {
+  const sourceType = contact.source_type || "";
+  if (sourceType === "linkedin_profile") return "Public LinkedIn profile";
+  if (sourceType === "linkedin_post") return "Public LinkedIn hiring post";
+  if (sourceType === "official_company_page") return "Official company page";
+  const url = String(contact.url || "").toLowerCase();
+  if (url.includes("linkedin.com/in/")) return "Public LinkedIn profile";
+  if (url.includes("linkedin.com/posts/") || url.includes("linkedin.com/feed/update")) return "Public LinkedIn hiring post";
+  return "Public professional source";
+}
+
 function openJobDialog(id) {
   const job = appState.jobs.find((item) => item.id === id);
   if (!job) return;
@@ -220,7 +240,8 @@ function openJobDialog(id) {
   const contacts = (job.public_contacts || []).filter((item) => item.verified);
   const contactsHTML = contacts.map((contact) => {
     const label = contact.name || "Recruiting inbox";
-    return `<article class="contact-card"><div><strong>${escapeHTML(label)}</strong><span>${escapeHTML(contact.role || "Recruiting contact")}</span></div>${contact.url ? `<a class="source-link" href="${escapeHTML(contact.url)}" target="_blank" rel="noreferrer" aria-label="Verify public source for ${escapeHTML(label)} at ${escapeHTML(job.company)}">Verify source ↗</a>` : ""}${contact.email ? `<span class="contact-email">${escapeHTML(contact.email)}</span>` : `<span class="contact-email">No public work email · use the cited professional source</span>`}</article>`;
+    const sourceType = contactSourceLabel(contact);
+    return `<article class="contact-card"><div><strong>${escapeHTML(label)}</strong><span>${escapeHTML(contact.role || "Recruiting contact")} · ${escapeHTML(sourceType)}</span></div>${contact.url ? `<a class="source-link" href="${escapeHTML(contact.url)}" target="_blank" rel="noreferrer" aria-label="Verify public source for ${escapeHTML(label)} at ${escapeHTML(job.company)}">Verify source ↗</a>` : ""}${contact.email ? `<span class="contact-email">${escapeHTML(contact.email)}</span>` : `<span class="contact-email">No public work email · use the cited professional source</span>`}</article>`;
   }).join("");
   $("#job-dialog-content").innerHTML = `
     <div class="dialog-title-row">
@@ -591,6 +612,58 @@ async function discoverLiveJobs() {
   }
 }
 
+async function discoverPublicContacts() {
+  if (!appState.profile) {
+    navigate("profile");
+    toast("Complete your profile first", "Contact research needs your target field and location.", "error");
+    return;
+  }
+  if (!appState.integrations.ai_connected) {
+    navigate("settings");
+    toast("Connect an AI provider", "Choose OpenRouter, OpenAI, or a search-ready Ollama setup first.", "error");
+    return;
+  }
+  const provider = appState.integrations.ai_provider;
+  if (provider === "ollama" && !appState.integrations.providers?.ollama?.search_ready) {
+    navigate("settings");
+    toast("Add a search source", "Ollama needs an Ollama Web Search key or a local SearXNG URL for public contact research.", "error");
+    return;
+  }
+  const candidates = appState.jobs
+    .filter((job) => !job.demo && job.verified && (job.public_contacts || []).length < 3)
+    .slice(0, 12);
+  if (!candidates.length) {
+    toast("No companies need contact research", "Run an opportunity scan first, or review the contacts already found.");
+    return;
+  }
+  const button = $("#find-contacts-button");
+  setButtonBusy(button, true, "Searching public sources");
+  try {
+    const result = await api("/api/jobs/contacts/discover", {
+      method: "POST",
+      body: JSON.stringify({
+        job_ids: candidates.map((job) => job.id),
+        max_companies: 12,
+        field: [$("#job-discipline").value, $("#job-keywords").value].filter(Boolean).join(", "),
+        location: $("#job-location").value,
+        country: $("#job-country").value,
+      }),
+    });
+    await refreshState();
+    const added = result.new_contacts_found || 0;
+    const coverage = `${result.companies_with_contacts || 0} companies now have verified contacts · ${result.sources_scanned || 0} sources checked`;
+    toast(
+      added ? "Public HR contacts updated" : "Contact search complete",
+      added ? `${added} new verified contact${added === 1 ? "" : "s"} · ${coverage}.` : `No new contact passed verification · ${coverage}.`,
+    );
+  } catch (error) {
+    toast("Contact search failed", error.message, "error");
+  } finally {
+    setButtonBusy(button, false);
+    renderJobs();
+  }
+}
+
 async function loadDemo() {
   try {
     const result = await api("/api/jobs/demo", { method: "POST", body: "{}" });
@@ -699,6 +772,7 @@ function bindEvents() {
 
   $("#mobile-settings").addEventListener("click", () => navigate("settings"));
   $("#discover-button").addEventListener("click", discoverLiveJobs);
+  $("#find-contacts-button").addEventListener("click", discoverPublicContacts);
   $("#prepare-button").addEventListener("click", prepareApplications);
   $("#confirm-send").addEventListener("click", confirmSend);
 

@@ -11,7 +11,7 @@ Nothing is sent automatically.
 - Three research lanes: posted roles, specialist organizations, and established employers with relevant teams
 - Direct-source preference, URL reachability checks, evidence links, source confidence, CV-fit reasons, and honest gaps
 - Proactive internship inquiries that never pretend an advertised vacancy exists
-- Dedicated research for public recruiters, talent-acquisition, people-operations, campus-hiring, and early-careers contacts
+- Dedicated small-batch research across public LinkedIn profiles, public LinkedIn hiring posts, and official company pages for recruiters, talent-acquisition, people-operations, campus-hiring, and early-careers contacts
 - Every saved contact needs a reachable professional source; guessed, personal, and unconfirmed email addresses are discarded
 - Toggle-based shortlist, editable drafts, per-message approval, and a final send confirmation
 - Gmail, Microsoft 365, and custom SMTP support with CV attachment
@@ -36,6 +36,7 @@ On macOS or Linux, activate `.venv` or run `.venv/bin/python` instead. Open [htt
 1. Complete the profile, including target disciplines and search locations, then upload a CV.
 2. In **Settings**, choose OpenRouter, OpenAI, or Ollama and connect it.
 3. Run an opportunity scan and inspect the evidence for every result.
+   Use **Search HR on LinkedIn** in the opportunity radar whenever you want to refresh contacts for saved employers without repeating the full opportunity scan.
 4. Toggle only the opportunities you want, then prepare applications.
 5. Review and edit each draft. Approve only messages you want to send.
 6. Connect an email sender for email applications. External forms are opened for manual completion.
@@ -83,7 +84,7 @@ Masar favors precision over result count:
 3. It rejects senior roles, generic search-result pages, low-confidence records, and location mismatches.
 4. It fetches each saved source. Unreachable records are discarded.
 5. A contact email survives only when it appears on the saved public page.
-6. A dedicated enrichment pass searches for up to three current recruiting contacts per organization and verifies the recruiting role plus the person's name or work email on the cited page.
+6. A dedicated enrichment pass searches small employer batches across public LinkedIn profiles, public LinkedIn hiring posts, and official company pages. It keeps up to three current recruiting contacts per organization only after verifying the role plus the person's name or published work email on the cited page.
 7. Proactive targets are deduplicated when the same employer already has a posted role.
 
 Search engines and public pages can still be wrong or stale. Always open the evidence and verify the closing date, eligibility, recipient, and message before approval.
