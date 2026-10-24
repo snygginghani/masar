@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sqlite3
+from io import BytesIO
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from masar_app import app as app_module
+from pypdf import PdfReader
 
 
 @pytest.fixture()
@@ -376,3 +379,105 @@ def test_public_contact_source_type_is_inferred_from_verified_url() -> None:
     assert app_module.public_contact_source_type(
         "https://careers.example.com/people", job
     ) == "official_company_page"
+
+
+def test_cv_review_export_and_stale_source_guard(client: TestClient) -> None:
+    client.put("/api/profile", json=profile_payload())
+    source = b"Dana Haddad\ndana@example.com\nEDUCATION\nBSc Computer Science\nEXPERIENCE\nBuilt data science tools for 500 students.\nSKILLS\nPython, SQL\nPROJECTS\nDeveloped reporting tools with 23 tests."
+    client.post("/api/cv", files={"file": ("cv.txt", source, "text/plain")})
+    result = client.post("/api/cv/review", json={"use_ai": False})
+    assert result.status_code == 200
+    review = result.json()["review"]
+    assert review["score"] == sum(item["score"] for item in review["criteria"])
+    assert review["rewrite_mode"] == "original"
+    edited = review["document"]
+    edited["sections"] = [{"heading": "Experience", "body": "## Analyst\n- Built reporting tools for 500 students.\n- Escaped <script> & content."}]
+    assert client.put("/api/cv/review/document", json={"source_hash":review["source_hash"], "document":edited}).status_code == 200
+    pdf = client.get("/api/cv/review/pdf?download=true")
+    assert pdf.status_code == 200
+    assert "attachment" in pdf.headers["content-disposition"]
+    parsed = PdfReader(BytesIO(pdf.content))
+    text = "".join(page.extract_text() for page in parsed.pages)
+    assert "500 students" in text and "<script>" in text
+    assert client.post("/api/cv/review/use", json={"source_hash":review["source_hash"],"confirmed":False}).status_code == 422
+    # A profile change invalidates the review, export, saved edits and adoption.
+    updated = profile_payload(); updated["preferred_roles"] = ["Design intern"]
+    client.put("/api/profile", json=updated)
+    assert client.get("/api/state").json()["cv_review"]["stale"] is True
+    assert client.get("/api/cv/review/pdf").status_code == 409
+    assert client.put("/api/cv/review/document", json={"source_hash":review["source_hash"],"document":edited}).status_code == 409
+    assert client.post("/api/cv/review/use", json={"source_hash":review["source_hash"],"confirmed":True}).status_code == 409
+
+
+def test_cv_rewrite_consent_and_evidence_validation(client: TestClient, monkeypatch) -> None:
+    profile = profile_payload(); profile["ai_consent"] = False
+    client.put("/api/profile", json=profile)
+    source = b"Dana Haddad built data tools for 500 students using Python and SQL."
+    client.post("/api/cv", files={"file":("cv.txt",source,"text/plain")})
+    app_module.runtime_secrets["openrouter_key"] = "test-only-key"
+    assert client.post("/api/cv/review",json={"use_ai":True}).status_code == 409
+    profile["ai_consent"] = True
+    client.put("/api/profile",json=profile)
+    client.post("/api/cv/review",json={"use_ai":False})
+    original = client.get("/api/state").json()["cv_review"]
+    async def unsupported(*args, **kwargs):
+        return {"content":json.dumps({"name":"Dana Haddad","sections":[{"heading":"Experience","body":"Built a rocket.","evidence":"This quote was invented by the model."}]})}
+    monkeypatch.setattr(app_module,"ai_chat",unsupported)
+    assert client.post("/api/cv/review",json={"use_ai":True}).status_code == 502
+    assert client.get("/api/state").json()["cv_review"]["document"] == original["document"]
+
+
+def test_adopt_cv_preserves_original_and_clear_removes_versions(client: TestClient) -> None:
+    client.put("/api/profile",json=profile_payload())
+    client.post("/api/cv",files={"file":("cv.txt",b"Dana Haddad built data tools for 500 students using Python and SQL.","text/plain")})
+    original_files = set(app_module.UPLOAD_DIR.iterdir())
+    review = client.post("/api/cv/review",json={"use_ai":False}).json()["review"]
+    response = client.post("/api/cv/review/use",json={"source_hash":review["source_hash"],"confirmed":True})
+    assert response.status_code == 200
+    assert original_files.issubset(set(app_module.UPLOAD_DIR.iterdir()))
+    assert response.json()["profile"]["cv_filename"] == "Masar-CV.pdf"
+    client.delete("/api/data")
+    assert client.get("/api/state").json()["cv_review"] is None
+    assert not list(app_module.UPLOAD_DIR.iterdir())
+
+
+def test_cv_rewrite_valid_evidence_and_edited_label(client: TestClient, monkeypatch) -> None:
+    client.put("/api/profile", json=profile_payload())
+    source = "Dana Haddad built data tools for 500 students using Python and SQL."
+    client.post("/api/cv", files={"file": ("cv.txt", source.encode(), "text/plain")})
+    app_module.runtime_secrets["openrouter_key"] = "test-only-key"
+    async def supported(*args, **kwargs):
+        return {"content": json.dumps({"name": "Dana Haddad", "sections": [{"heading": "Projects", "body": "- Built data tools for 500 students using Python and SQL.", "evidence": source}]})}
+    monkeypatch.setattr(app_module, "ai_chat", supported)
+    result = client.post("/api/cv/review", json={"use_ai": True})
+    assert result.status_code == 200
+    review = result.json()["review"]
+    assert review["rewrite_mode"] == "assisted"
+    review["document"]["headline"] = "Data science student"
+    edited = client.put("/api/cv/review/document", json={"source_hash": review["source_hash"], "document": review["document"]})
+    assert edited.json()["review"]["rewrite_mode"] == "edited"
+    repeated = client.post("/api/cv/review", json={"use_ai": False}).json()["review"]
+    assert repeated["document"]["headline"] == "Data science student"
+    assert repeated["rewrite_mode"] == "edited"
+    assert client.get("/api/cv/review/pdf").content.startswith(b"%PDF")
+
+
+def test_profile_extraction_requires_consent_and_does_not_save(client, monkeypatch):
+    client.put("/api/profile", json=profile_payload())
+    client.post("/api/cv", files={"file": ("cv.txt", b"Dana Haddad has built Python and SQL tools for 500 students.", "text/plain")})
+    original = client.get("/api/state").json()["profile"]
+    assert client.post("/api/profile/extract", json={}).status_code == 422
+    assert client.post("/api/profile/extract", json={"consent": True}).status_code == 409
+    async def fake_extraction(*args):
+        return {"suggestions": [{"field": "full_name", "value": "Dana Haddad"}], "model": {}, "rejected_fields": []}
+    monkeypatch.setattr(app_module, "extract_profile", fake_extraction)
+    result = client.post("/api/profile/extract", json={"consent": True})
+    assert result.status_code == 200
+    assert result.json()["source_hash"] == client.get("/api/profile/extraction-source").json()["source_hash"]
+    assert client.get("/api/state").json()["profile"] == original
+    async def changing_source(*args):
+        with app_module.db() as connection:
+            connection.execute("UPDATE profile SET cv_text='New CV text' WHERE id=1")
+        return {"suggestions": []}
+    monkeypatch.setattr(app_module, "extract_profile", changing_source)
+    assert client.post("/api/profile/extract", json={"consent": True}).status_code == 409

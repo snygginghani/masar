@@ -1,0 +1,27 @@
+name: Bug report
+description: Report a reproducible problem without sharing personal information.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include API keys, passwords, CVs, private contact information or unsanitized logs. For vulnerabilities, see SECURITY.md."
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, Python version, browser, provider and model (no secrets)
+    validations:
+      required: true

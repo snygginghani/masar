@@ -12,6 +12,8 @@ let activeFilter = "all";
 let pendingSendIds = [];
 let onboardingStep = 1;
 let capabilities = null;
+const dirtyForms = new Set();
+let searchInProgress = false;
 
 const icons = {
   search: '<svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>',
@@ -43,7 +45,9 @@ async function api(path, options = {}) {
   let body = {};
   try { body = await response.json(); } catch { body = {}; }
   if (!response.ok) {
-    const message = typeof body.detail === "string" ? body.detail : "Something went wrong. Please try again.";
+    const message = typeof body.detail === "string" ? body.detail : Array.isArray(body.detail)
+      ? body.detail.map((item) => `${item.loc?.slice(1).join(" ") || "Field"}: ${item.msg}`).join(". ")
+      : "Something went wrong. Please try again.";
     throw new Error(message);
   }
   return body;
@@ -79,16 +83,17 @@ function setButtonBusy(button, busy, label = "Working") {
 }
 
 async function refreshState() {
-  const requests = [api("/api/state")];
-  if (!capabilities) requests.push(api("/api/system/capabilities"));
-  const [state, systemInfo] = await Promise.all(requests);
-  appState = state;
-  if (systemInfo) capabilities = systemInfo;
+  appState = await api("/api/state");
+  if (!capabilities) {
+    try { capabilities = await api("/api/system/capabilities"); } catch { /* Hardware hints are optional. */ }
+  }
   renderAll();
 }
 
 function navigate(route) {
+  if (!["profile", "review", "discover", "applications", "settings"].includes(route)) route = "discover";
   activeRoute = route;
+  if (location.hash !== `#${route}`) history.pushState(null, "", `#${route}`);
   $$("[data-view]").forEach((view) => view.classList.toggle("is-visible", view.dataset.view === route));
   $$("[data-route]").forEach((button) => {
     const isActive = button.dataset.route === route;
@@ -97,9 +102,14 @@ function navigate(route) {
     else button.removeAttribute("aria-current");
   });
   $("#selection-bar").hidden = route !== "discover" || selectedJobs().length === 0;
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  window.scrollTo({ top: 0, behavior: "instant" });
   if (route === "profile") fillProfileForm();
   if (route === "applications") renderApplications();
+  if (typeof renderStudio === "function") renderStudio();
+  const heading = $(`#view-${route} h1`);
+  if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+  const pageLocation = $("#page-location");
+  if (pageLocation) pageLocation.textContent = {profile:"Your profile",review:"CV studio",discover:"Opportunities",applications:"Applications",settings:"Settings"}[route];
 }
 
 function selectedJobs() {
@@ -113,6 +123,7 @@ function renderAll() {
   renderConnections();
   fillProfileForm();
   fillSearchContext();
+  if (typeof renderStudio === "function") renderStudio();
   const drafts = appState.applications.filter((item) => item.status !== "sent").length;
   const count = $("#draft-count");
   count.textContent = drafts;
@@ -192,7 +203,7 @@ function renderJobs() {
   const contactButton = $("#find-contacts-button");
   const contactCandidates = appState.jobs.filter((job) => !job.demo && job.verified && (job.public_contacts || []).length < 3);
   if (contactButton && contactButton.getAttribute("aria-busy") !== "true") {
-    contactButton.disabled = contactCandidates.length === 0;
+    contactButton.disabled = searchInProgress || contactCandidates.length === 0;
     contactButton.title = contactCandidates.length
       ? `Search public professional contacts for ${Math.min(contactCandidates.length, 12)} saved companies`
       : "Run an opportunity scan first, or all saved companies already have three contacts";
@@ -360,10 +371,19 @@ function renderConnections() {
   $("#ai-status").classList.toggle("connected", aiConnected);
   $("#smtp-status").textContent = smtpConnected ? `Connected · ${appState.integrations.smtp_from}` : "Not connected";
   $("#smtp-status").classList.toggle("connected", smtpConnected);
-  $("#ai-provider").value = provider;
-  applyAIProvider(provider, true);
+  if (!dirtyForms.has("ai-form")) {
+    $("#ai-provider").value = provider;
+    applyAIProvider(provider, true);
+  }
   const preset = $("#smtp-preset");
-  if (preset?.value) applySMTPPreset(preset.value);
+  if (!dirtyForms.has("smtp-form")) {
+    const savedEmail = appState.preferences?.email;
+    if (savedEmail?.host) {
+      Object.entries(savedEmail).forEach(([key, value]) => { const input = $("#smtp-form").elements[key]; if (input) { if(input.type === "checkbox") input.checked = value; else input.value = value; } });
+      preset.value = savedEmail.host === "smtp.gmail.com" ? "gmail" : savedEmail.host === "smtp.office365.com" ? "outlook" : "";
+    }
+    if (preset?.value) applySMTPPreset(preset.value);
+  }
 }
 
 function renderHardwareCard() {
@@ -398,6 +418,11 @@ function applyAIProvider(provider, preferSaved = false) {
     form.elements.base_url.value = saved.base_url || "http://127.0.0.1:11434";
     $("#ollama-model-list").innerHTML = (saved.models || []).map((name) => `<option value="${escapeHTML(name)}"></option>`).join("");
     renderHardwareCard();
+    const preferences = appState.preferences?.ai || {};
+    form.elements.searxng_url.value = preferences.searxng_url || "";
+    const mode = preferences.searxng_url ? "searxng" : saved.search_ready ? "ollama" : "none";
+    $("#ollama-search-mode").value = mode;
+    applyOllamaSearchMode(mode);
   }
 }
 
@@ -491,7 +516,7 @@ function fillProfileForm() {
   const profile = appState.profile?.data;
   const form = $("#profile-form");
   if (!profile || !form) return;
-  Object.entries(profile).forEach(([key, value]) => {
+  if (!dirtyForms.has("profile-form")) Object.entries(profile).forEach(([key, value]) => {
     if (key === "workplace") {
       $$('[name="workplace"]', form).forEach((input) => { input.checked = value.includes(input.value); });
     } else if (key === "ai_consent") {
@@ -558,8 +583,8 @@ async function finishOnboarding() {
     await uploadCV(file);
     await refreshState();
     $("#onboarding").hidden = true;
-    navigate("settings");
-    toast("Profile ready", "Choose an AI provider next, then run your first live scan.");
+    navigate("review");
+    toast("Profile ready", "Review your CV next. You can connect an AI provider when you want a rewrite or a live search.");
   } catch (error) {
     toast("Could not finish setup", error.message, "error");
   } finally {
@@ -568,6 +593,7 @@ async function finishOnboarding() {
 }
 
 async function discoverLiveJobs() {
+  if (searchInProgress) return;
   if (!appState.profile?.cv_ready) {
     navigate("profile");
     toast("Upload your CV first", "Live matching needs your CV text.", "error");
@@ -585,6 +611,8 @@ async function discoverLiveJobs() {
     return;
   }
   const button = $("#discover-button");
+  searchInProgress = true;
+  $("#find-contacts-button").disabled = true;
   setButtonBusy(button, true, "Researching opportunities");
   $("#jobs-list").innerHTML = `<div class="loading-lines"><div class="loading-card"></div><div class="loading-card"></div></div>`;
   try {
@@ -608,11 +636,14 @@ async function discoverLiveJobs() {
     renderJobs();
     toast("Live search failed", error.message, "error");
   } finally {
+    searchInProgress = false;
     setButtonBusy(button, false);
+    renderJobs();
   }
 }
 
 async function discoverPublicContacts() {
+  if (searchInProgress) return;
   if (!appState.profile) {
     navigate("profile");
     toast("Complete your profile first", "Contact research needs your target field and location.", "error");
@@ -637,6 +668,8 @@ async function discoverPublicContacts() {
     return;
   }
   const button = $("#find-contacts-button");
+  searchInProgress = true;
+  $("#discover-button").disabled = true;
   setButtonBusy(button, true, "Searching public sources");
   try {
     const result = await api("/api/jobs/contacts/discover", {
@@ -659,6 +692,8 @@ async function discoverPublicContacts() {
   } catch (error) {
     toast("Contact search failed", error.message, "error");
   } finally {
+    searchInProgress = false;
+    $("#discover-button").disabled = false;
     setButtonBusy(button, false);
     renderJobs();
   }
@@ -743,6 +778,9 @@ async function confirmSend() {
 }
 
 function bindEvents() {
+  ["profile-form", "ai-form", "smtp-form"].forEach((id) => $("#" + id).addEventListener("input", () => dirtyForms.add(id)));
+  window.addEventListener("popstate", () => navigate(location.hash.slice(1) || "review"));
+  window.addEventListener("beforeunload", (event) => { if (dirtyForms.size) { event.preventDefault(); event.returnValue = ""; } });
   document.addEventListener("click", async (event) => {
     const routeButton = event.target.closest("[data-route]");
     if (routeButton) {
@@ -807,6 +845,7 @@ function bindEvents() {
     setButtonBusy(button, true, "Saving");
     try {
       await saveProfile(event.currentTarget);
+      dirtyForms.delete("profile-form");
       await refreshState();
       $("#profile-save-status").textContent = "Saved just now";
       toast("Profile saved", "Future matches will use these details.");
@@ -858,6 +897,7 @@ function bindEvents() {
     setButtonBusy(button, true, "Connecting");
     try {
       const result = await api("/api/integrations/ai", { method: "POST", body: JSON.stringify(payload) });
+      dirtyForms.delete("ai-form");
       form.elements.api_key.value = "";
       form.elements.ollama_search_api_key.value = "";
       await refreshState();
@@ -865,7 +905,8 @@ function bindEvents() {
         ? `Ollama connected, but ${result.model} is not installed yet. Run the pull command shown in Settings.`
         : "Masar can now match your CV and prepare tailored drafts.";
       toast(`${provider === "ollama" ? "Ollama" : provider === "openai" ? "OpenAI" : "OpenRouter"} connected`, localNote);
-    } catch (error) { toast("Could not connect", error.message, "error"); }
+      formFeedback(form, "Connected successfully. Your provider is ready.");
+    } catch (error) { formFeedback(form, error.message, true); toast("Could not connect", error.message, "error"); }
     finally { setButtonBusy(button, false); }
   });
 
@@ -884,10 +925,12 @@ function bindEvents() {
     setButtonBusy(button, true, "Saving");
     try {
       await api("/api/integrations/smtp", { method: "POST", body: JSON.stringify(payload) });
+      dirtyForms.delete("smtp-form");
       form.elements.password.value = "";
       await refreshState();
       toast("Email sender connected", "Approved emails can now be sent from your account.");
-    } catch (error) { toast("Could not save email settings", error.message, "error"); }
+      formFeedback(form, "Connection tested successfully. No email was sent.");
+    } catch (error) { formFeedback(form, error.message, true); toast("Could not save email settings", error.message, "error"); }
     finally { setButtonBusy(button, false); }
   });
 
@@ -944,9 +987,7 @@ async function init() {
     } else {
       $("#onboarding").hidden = true;
     }
-    const smtpPreset = $("#smtp-preset");
-    smtpPreset.value = "gmail";
-    applySMTPPreset("gmail");
+    navigate(location.hash.slice(1) || "review");
   } catch (error) {
     toast("Masar could not start", error.message, "error");
   }

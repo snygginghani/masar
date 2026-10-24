@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest a focused improvement to the career-search workflow.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested behavior and alternatives
+    validations:
+      required: true

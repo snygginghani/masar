@@ -4,11 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Masar is an approval-first opportunity engine for internships and early-career roles in any field, anywhere.">
-  <title>Masar — opportunity engine</title>
+  <title>Masar — Career workspace</title>
+  <link rel="icon" type="image/png" href="/static/assets/masar-symbol.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/workspace.css">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>
@@ -23,6 +25,8 @@
       </a>
 
       <nav class="nav-list">
+        <span class="nav-caption">YOUR WORKSPACE</span>
+        <button class="nav-item" data-route="review" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8zM14 3v5h5M8 13h8M8 17h5"/></svg><span>CV studio</span><span class="nav-new">NEW</span></button>
         <button class="nav-item is-active" data-route="discover" type="button">
           <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
           <span>Discover</span>
@@ -52,6 +56,7 @@
     </aside>
 
     <main id="main-content" tabindex="-1">
+      <header class="workspace-header"><span>Career workspace <span class="header-divider">/</span> <strong id="page-location">Opportunities</strong></span><div><span id="workspace-connection" class="workspace-status">Local workspace</span><span id="user-avatar" class="user-avatar" aria-hidden="true">M</span></div></header>
       <header class="mobile-header">
         <a class="brand" href="#" data-route="discover"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 36 36" fill="none"><path d="M7 25.5 15.5 17l5 5L29 13.5"/><path d="M20.5 13.5H29V22"/></svg></span><strong>masar</strong></a>
         <button class="icon-button" id="mobile-settings" type="button" aria-label="Open settings">
@@ -59,12 +64,34 @@
         </button>
       </header>
 
+      <nav class="journey" aria-label="Application journey">
+        <button data-route="profile" type="button"><span class="journey-number">1</span><span><strong>Your profile</strong><small id="journey-profile">Add your background</small></span></button>
+        <button data-route="review" type="button"><span class="journey-number">2</span><span><strong>Review your CV</strong><small id="journey-review">Make a strong first impression</small></span></button>
+        <button data-route="discover" type="button"><span class="journey-number">3</span><span><strong>Find opportunities</strong><small id="journey-discover">Build your shortlist</small></span></button>
+        <button data-route="applications" type="button"><span class="journey-number">4</span><span><strong>Apply with care</strong><small id="journey-applications">Review, approve, send</small></span></button>
+      </nav>
+      <section class="view" id="view-review" data-view="review">
+        <div class="studio-heading"><div><p class="eyebrow">DOCUMENT WORKSPACE</p><h1>A stronger CV.<br><span>Still your story.</span></h1><p class="page-intro">Understand what works, improve what matters, and leave with a CV you’re confident sending.</p></div><div class="studio-heading-note"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8zM14 3v5h5M8 13h8M8 17h5"/></svg><span>Single-column PDF<br><strong>Clear. Readable. Yours.</strong></span></div></div>
+        <div class="studio-toolbar"><div class="studio-file"><span class="file-icon">PDF</span><div><strong id="studio-filename">Add a CV to get started</strong><small id="studio-file-detail">PDF, DOCX or text · up to 10 MB</small></div></div><div class="studio-actions"><button type="button" class="button button-light" data-route="profile">Change CV</button><button type="button" class="button button-dark" id="review-cv-button">Review my CV</button></div></div>
+        <p id="studio-feedback" class="inline-feedback" role="status" hidden></p>
+        <div class="studio-tabs" role="tablist" aria-label="CV studio view"><button id="review-tab" role="tab" aria-selected="true" aria-controls="review-panel" data-studio-tab="review" type="button">Review & recommendations</button><button id="editor-tab" role="tab" aria-selected="false" aria-controls="editor-panel" data-studio-tab="editor" type="button" tabindex="-1">Edit & export</button></div>
+        <div id="review-panel" role="tabpanel" aria-labelledby="review-tab">
+          <div id="review-empty" class="studio-empty"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8zM14 3v5h5M8 13h8M8 17h5"/></svg><h2>See your CV through a recruiter’s eyes.</h2><p>Get a transparent writing score, practical recommendations, and a clean PDF workspace. The first review runs on your computer.</p><div class="review-benefits"><span>01 · Clear score breakdown</span><span>02 · Actionable improvements</span><span>03 · Editable PDF</span></div></div>
+          <div id="review-results" hidden></div>
+        </div>
+        <div id="editor-panel" role="tabpanel" aria-labelledby="editor-tab" hidden>
+          <div class="editor-intro"><div><h2>Shape your next version</h2><p id="rewrite-description">Review your CV first to begin. An AI connection is optional for rewriting.</p></div><button class="button button-dark" id="rewrite-cv-button" type="button">Suggest a better version</button></div>
+          <div class="editor-layout"><form id="cv-editor-form" class="card cv-editor"><div class="editor-fields" id="cv-editor-fields"><p>Your editable document will appear here after a review.</p></div><div class="editor-save"><span id="cv-save-status" role="status"></span><button class="button button-dark" type="submit" id="save-cv-button" disabled>Save & preview PDF</button></div></form><aside class="pdf-preview-panel"><div class="preview-toolbar"><strong>PDF preview</strong><a class="source-link" id="cv-download" href="/api/cv/review/pdf?download=true" hidden>Download PDF ↗</a></div><div id="pdf-placeholder" class="pdf-placeholder">Save your document to preview its final layout.</div><iframe id="cv-pdf-preview" title="Designed CV PDF preview" hidden></iframe><p class="preview-note">A4 · selectable text · single column · automatic page breaks</p></aside></div>
+          <div class="adopt-bar"><label class="inline-check"><input type="checkbox" id="cv-facts-confirm"><span>I reviewed the wording and confirm the facts are accurate.</span></label><button type="button" class="button button-light" id="adopt-cv-button" disabled>Use this CV for applications</button></div>
+        </div>
+        <div class="studio-next"><span>Your next step</span><button class="text-button" data-route="discover" type="button">Find opportunities <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button></div>
+      </section>
       <section class="view is-visible" id="view-discover" data-view="discover">
         <div class="page-head">
           <div>
-            <p class="eyebrow"><span class="eyebrow-line"></span> Your opportunity radar</p>
-            <h1>Find the roles.<br><em>Reach the right teams.</em></h1>
-            <p class="page-intro">Masar checks live early-career roles in your field, then maps relevant organizations worth approaching—even when they have not advertised an internship.</p>
+            <p class="eyebrow">OPPORTUNITIES</p>
+            <h1>Find your next step.</h1>
+            <p class="page-intro">Explore relevant roles and companies. Build a shortlist worth your time.</p>
           </div>
           <div class="amman-stamp" aria-hidden="true">
             <svg viewBox="0 0 190 110" fill="none"><path d="M4 78c20-3 25-17 42-16 14 1 16 11 30 10 20-2 23-37 46-36 19 1 21 26 36 28 8 1 17-4 28-14"/><path d="M4 89c29-7 45 4 66-2 15-5 23-18 40-17 18 1 21 12 40 12 15 0 21-8 36-10"/><path d="M19 60V46h14v13M26 46V32h7v14M88 69V52h18v16M92 52V41h10v11M147 62V43h15v18"/></svg>
@@ -142,7 +169,7 @@
       <section class="view" id="view-applications" data-view="applications">
         <div class="simple-head">
           <p class="eyebrow"><span class="eyebrow-line"></span> Review before anything leaves</p>
-          <h1>Application <em>desk.</em></h1>
+          <h1>Your applications.</h1>
           <p>Read, edit, and approve each draft. Posted roles use their application route; proactive opportunities become honest internship inquiries that never claim a vacancy exists.</p>
         </div>
         <div class="approval-banner">
@@ -158,6 +185,24 @@
           <h1>Your <em>profile.</em></h1>
           <p>Keep this honest and specific. Masar uses it with your CV to score roles and prepare applications.</p>
         </div>
+        <section class="card profile-extraction" aria-labelledby="extraction-heading">
+          <div class="section-bar"><div><p class="eyebrow">LESS TYPING, MORE CONTROL</p><h2 id="extraction-heading">Fill details from your CV</h2><p>Extract facts from your uploaded CV, inspect the source, and choose what to use. Nothing is saved automatically.</p></div></div>
+          <div class="extraction-controls">
+            <label class="field"><span>Extraction model · OpenRouter</span><select id="extraction-model"><option value="inception/mercury-2.5">Mercury 2.5 · recommended balance</option><option value="nex-agi/nex-n2.5-mini">Nex-N2.5-Mini · lower price</option></select></label>
+            <button class="button button-light" id="extraction-prices" type="button">Check current prices</button>
+          </div>
+          <p id="extraction-price-note">Dedicated low-cost model; does not change your discovery model. Live prices are checked before each request. Maximum rates: $0.10 input / $0.40 output per million tokens.</p>
+          <label class="consent"><input type="checkbox" id="extraction-consent"><span>Send my uploaded CV text to OpenRouter and its model provider for this extraction, including when my discovery provider is Ollama.</span></label>
+          <div class="form-actions"><span>Unknown facts and unstated preferences are left for you.</span><button class="button button-dark" id="extract-profile" type="button">Extract candidate details</button></div>
+          <p id="extraction-status" role="status" aria-live="polite"></p>
+          <div id="extraction-preview" hidden>
+            <h3 tabindex="-1" id="extraction-preview-heading">Review suggested details</h3>
+            <p>Existing values are unchecked by default. Only checked fields will be copied into the form; then choose Save profile.</p>
+            <div id="extraction-suggestions"></div>
+            <button class="button button-dark" type="button" id="apply-extraction">Use selected details</button>
+            <button class="button button-light" type="button" id="dismiss-extraction">Dismiss</button>
+          </div>
+        </section>
         <div class="profile-layout">
           <form class="card form-card" id="profile-form">
             <div class="card-head"><div><span class="card-index">01</span><h2>Candidate details</h2></div><span class="required-note">* Required</span></div>
@@ -211,9 +256,10 @@
       <section class="view" id="view-settings" data-view="settings">
         <div class="simple-head">
           <p class="eyebrow"><span class="eyebrow-line"></span> Private, local connections</p>
-          <h1>Connections & <em>settings.</em></h1>
-          <p>Keys and passwords live in server memory only. Restarting Masar clears them.</p>
+          <h1>Settings</h1>
+          <p>Connect your tools and choose how Masar works for you. Preferences are saved on this computer; keys and passwords last for this session.</p>
         </div>
+        <div class="settings-navigation" role="tablist" aria-label="Settings categories"><button type="button" role="tab" aria-selected="true" aria-controls="ai-form" id="settings-ai-tab" data-settings-tab="ai">AI & research</button><button type="button" role="tab" aria-selected="false" aria-controls="smtp-form" id="settings-email-tab" data-settings-tab="email" tabindex="-1">Email & sending</button><button type="button" role="tab" aria-selected="false" aria-controls="settings-data-panel" id="settings-data-tab" data-settings-tab="data" tabindex="-1">Data & privacy</button></div>
         <div class="settings-grid">
           <form class="card settings-card" id="ai-form">
             <div class="integration-head">
@@ -232,7 +278,8 @@
               <label class="field" id="searxng-url-field" hidden><span>SearXNG URL</span><input name="searxng_url" placeholder="http://127.0.0.1:8080"><small>Use your own SearXNG instance for a fully self-hosted search path.</small></label>
               <div class="hardware-card" id="hardware-card" aria-live="polite"><strong>Inspecting this computer…</strong></div>
             </div>
-            <button class="button button-dark button-full" type="submit">Connect selected provider</button>
+            <p class="form-feedback" role="status" hidden></p>
+            <button class="button button-dark button-full" type="submit">Test & connect provider</button>
           </form>
 
           <form class="card settings-card" id="smtp-form">
@@ -248,20 +295,23 @@
             <label class="field"><span>App password</span><div class="password-wrap"><input name="password" type="password" autocomplete="new-password" required><button type="button" class="reveal-button" aria-label="Show app password">Show</button></div><small>For Gmail, use an app password—not your normal password.</small></label>
             <label class="field"><span>From email</span><input name="from_email" type="email" required></label>
             <label class="inline-check"><input name="use_tls" type="checkbox" checked><span>Use TLS encryption</span></label>
-            <button class="button button-dark button-full" type="submit">Save email connection</button>
+            <p class="form-feedback" role="status" hidden></p>
+            <button class="button button-dark button-full" type="submit">Test & connect email</button>
           </form>
         </div>
         <section class="card tutorial-card" aria-labelledby="gmail-guide-title">
           <div class="tutorial-copy"><span class="card-index">GUIDE</span><h2 id="gmail-guide-title">Create a Gmail App Password</h2><p>Gmail SMTP requires 2-Step Verification and a 16-character App Password. Never paste your normal Google password into Masar.</p><ol><li>Enable 2-Step Verification for your Google account.</li><li>Open App Passwords and create one for Masar.</li><li>Paste the generated password above; spaces are removed automatically.</li></ol><p><a href="https://support.google.com/accounts/answer/185833?hl=en" target="_blank" rel="noopener noreferrer">Read Google’s official instructions</a> · <a href="https://www.youtube.com/watch?v=ckfyTVgF1T4" target="_blank" rel="noopener noreferrer">Open this video on YouTube</a></p></div>
           <div class="tutorial-video"><iframe src="https://www.youtube-nocookie.com/embed/ckfyTVgF1T4" title="How to create a Gmail App Password" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
         </section>
-        <div class="danger-zone">
+        <section id="settings-data-panel" hidden><div class="card privacy-card"><h2>Your data, on your computer</h2><p>Your profile, CV and applications are stored locally. Connection preferences are remembered, while API keys and passwords are cleared when the server stops.</p><p>With a hosted AI provider, the CV text needed for a review or application is sent to that provider. With Ollama, model processing stays local. Live searching still needs a web search source.</p><button class="button button-light" data-route="profile" type="button">Manage profile & consent</button></div></section>
+        <div class="danger-zone" id="settings-danger">
           <div><h2>Clear local data</h2><p>Removes your profile, uploaded CV, job list, drafts, and in-memory connections.</p></div>
           <button class="button button-danger" id="clear-data" type="button">Clear everything</button>
         </div>
       </section>
 
       <nav class="mobile-nav" aria-label="Mobile navigation">
+        <button data-route="review" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8zM14 3v5h5M8 13h8M8 17h5"/></svg><span>CV studio</span></button>
         <button class="is-active" data-route="discover" type="button"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>Discover</span></button>
         <button data-route="applications" type="button"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Desk</span></button>
         <button data-route="profile" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg><span>Profile</span></button>
@@ -348,5 +398,7 @@
 
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
   <script src="/static/app.js" defer></script>
+  <script src="/static/studio.js" defer></script>
+  <script src="/static/profile-extraction.js" defer></script>
 </body>
 </html>
